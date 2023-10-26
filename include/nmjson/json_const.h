@@ -1,6 +1,8 @@
 #ifndef	NMJSON_JSON_CONST_H_
 #define	NMJSON_JSON_CONST_H_
 
+#include "./polyfill.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
