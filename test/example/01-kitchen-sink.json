@@ -1,0 +1,30 @@
+{
+	"obj": {
+		"integer": 1234567890,
+		"float": 1.234567890,
+		"string": "1234567890abcde",
+		"bool": {
+			"t": true,
+			"f": false
+		},
+		"null": null,
+		"array": [1, 2, 345, 6.7, "89", "", null, true, false, [0.0, 0.1, {"t": 0.3}]],
+		"unicode_str": "１２３４５６７８９０"
+	},
+	"unicode": {
+		"ひらがな": "あいうえおかきくけこ",
+		"カタカナ": "アカサタナハマヤラワ",
+		"漢字": "零一二三四五六七八九",
+		"escape": "\n \b \t \\ \r \\b \"ﾐｸﾀﾞﾖｰ\"",
+		"cyrill": "ураааа！！Πартия Ленина!!",
+		"uxxx": "\uD83D\uDE43←\u4f55\uff7a\uff9a"
+	},
+	"nest": [[[[[[[[[["\"\ud83d\ude43\"\"<-ﾔｯﾎｫ, [リテラルの中ならやり放題さァ\n]"]]]]]]]]]],
+	"strcast": {
+		"hex_normal": "0x123456",
+		"ull": "   0xFFFFFFFFFFFFFFFF",
+		"sll": "-0x7FFFFFFFFFFFFFFF",
+		"bt": "true",
+		"bf": "false"
+	}
+}

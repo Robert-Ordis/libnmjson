@@ -1,0 +1,38 @@
+{
+	"obj": {
+		"integer": 1234567890,
+		"float": 1.234567890,
+		"string": "1234567890abcde",
+		"bool": {
+			"t": true,
+			"f": false
+		},
+		"null": null,
+		"array": [1, 2, 345, 6.7, "89", "", null, true, false, [0.0, 0.1, {"t": 0.3}]],
+		"unicode_str": "１２３４５６７８９０"
+	},
+	//コメント入れようね。
+	/*
+	例えばこんなね。
+	*/
+	unicode: {
+		"ひらがな": "あいうえおかきくけこ",
+		"カタカナ": "アカサタナハマヤラワ",
+		"漢字": "零一二三四五六七八九",
+		esca\u0072pe: "\n \b \t \\ \r \\b \"ﾐｸﾀﾞﾖｰ\"",
+		ураа: "ураааа！！Πартия Ленина!!",
+		"uxxx": "\uD83D\uDE43←\u4f55\uff7a\uff9a",
+	},
+	nest: [[[[[[[[[["\"\ud83d\ude43\"\"<-ﾔｯﾎｫ, [リテラルの中ならやり放題さァ\n]"]]]]]]]]]],
+	specials: {
+		"hex_normal": 0x01BF52,
+		"line_concat": "\
+僕ドラえもんです。\
+ECMA5の文法をC言語でまじめに対応だなんて、\
+君はじつにばかだな。\n \
+",
+		"ext_escape": "GPL\0 for the code under \"GPL\" directory.\v you cheated!!",
+		"special_nums": [ Infinity, -Infinity, NaN, ],
+		hex_escape: "\x22\x16\x00\x53",
+	}
+}

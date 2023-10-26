@@ -1,0 +1,52 @@
+
+struct string_args_s {
+	
+}
+
+struct nmobj_builder_s {
+	nmjson_token_t	*active_head;
+	nmjson_token_t	*free_head;
+	
+	
+	
+};
+
+nmjson_builder_init_static(&builder, tokens, tokens_num, strbuf, strbuf_len);
+nmjson_builder_init_withheap(&builder);
+
+nmjson_builder_reset(&builder);
+
+{
+	"res": {
+		"code": 200,
+		"time": 0.5,
+		"OK": true
+	},
+	"numbers":[
+		1,2,3,4,5,7
+	]
+}
+
+//最大で何個のトークンを検出できたかをまず数えてみるか。
+
+nmjson_builder_cd(&builder, "$.res");
+nmjson_builder_set_int(&builder, "@.code", 200);
+nmjson_builder_set_float(&builder, "@.time", 0.5);
+nmjson_builder_set_bool(&builder, "@['OK']", 1);
+
+nmjson_builder_cd(&builder, "$.numbers");
+nmjson_builder_set_int(&builder, "@[+]", 1);
+nmjson_builder_set_int(&builder, "@[+]", 2);
+nmjson_builder_set_int(&builder, "@[+]", 3);
+nmjson_builder_set_int(&builder, "@[+]", 4);
+nmjson_builder_set_int(&builder, "@[+]", 5);
+
+nmjson_builder_cd_parent(&builder, 1);
+nmjson_builder_set_int(&builder, "@.numbers[+]", 6);
+nmjson_builder_set_int(&builder, "@.numbers[-1]", 7);
+
+nmjson_builder_set_const_string(&builder, "@.てすと", "あからさま");
+//only unicode is allowed.
+nmjson_builder_set_const_string(&builder, "@.\\u2356\\u3333['\\u1234\\uA7F5']", "\\u5555");
+
+

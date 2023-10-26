@@ -1,0 +1,39 @@
+{
+	"request": "order1",
+	"params": [
+	
+	]
+}
+{	"request": "search", "target": "Vampires", "params":[{"weapon": "Jackal", "player": ["Arucard", "Walter"]}]}
+{
+	"request": "destroy",
+	"params": [
+	
+	]
+}
+{
+	"request": "order1",
+	"params": [
+	
+	]
+}
+{	"request": "search", "target": "Vampires", "params":[{"weapon": "Jackal", "player": ["Arucard", "Walter"]}]}
+{
+	"request": "destroy",
+	"params": [
+	
+	]
+}
+{
+	"request": "order1",
+	"params": [
+	
+	]
+}
+{	"request": "search", "target": "Vampires", "params":[{"weapon": "Jackal", "player": ["Arucard", "Walter"]}]}
+{
+	"request": "destroy",
+	"params": [
+	
+	]
+}
