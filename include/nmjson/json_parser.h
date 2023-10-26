@@ -16,7 +16,7 @@ extern "C" {
 
 #include "./json_const.h"
 
-struct nmjson_token_s;
+#include "./json_token.h"
 
 struct nmjson_parser_s {
 	
@@ -43,7 +43,6 @@ struct nmjson_parser_s {
 };
 
 typedef struct nmjson_parser_s nmjson_parser_t;
-typedef struct nmjson_token_s nmjson_token_t;
 
 nmjson_parser_t*	nmjson_parser_init(nmjson_parser_t *self, nmjson_token_t *tokens, int tokens_len);
 void				nmjson_parser_reset(nmjson_parser_t *self);
