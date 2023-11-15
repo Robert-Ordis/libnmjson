@@ -8,3 +8,5 @@ AM_CFLAGS = -I./include \
 	 -Wall
 	
 SUBDIRS = src include test
+
+EXTRA_DIST = LICENSE
