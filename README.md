@@ -94,3 +94,6 @@ void test00(){
 `nmjson_buffer_init(&jbuffer, NULL, 0, NULL, 0);//とすると完全ヒープメモリで行う、というイメージです`
 * JSONPathの記法でわかりやすくJSONを組み立てられるようにする  
 `nmjson_builder_set_int(&maker, "$.obj1.array[-1]", 334);	//といった具合のものです`
+
+### あんちょこ
+```$ autoreconf -vfi```
