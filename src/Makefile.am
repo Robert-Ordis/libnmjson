@@ -23,7 +23,8 @@ libnmjson_a_CFLAGS = $(AM_CFLAGS) \
 	-DVER_PATCH=1 \
 	-DVER_TAILS= \
 	-DPROJECT_NAME=\"libnmjson\" \
-	-DBUILD_DATE=\"$(shell date +'%Y-%m-%d_%H:%M:%S')\"
+	-DBUILD_DATE=\"$(shell date +'%Y-%m-%d_%H:%M:%S')\" \
+	-I$(top_srcdir)/
 
 libnmjson_a-nmjson_buildver.$(OBJEXT) : FORCE
 	

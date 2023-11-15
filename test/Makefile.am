@@ -9,4 +9,7 @@ testProgram_SOURCES = \
 
 testProgram_LDADD = ../src/libnmjson.a
 
+testProgram_CFLAGS = \
+	-I$(top_srcdir)/
+
 EXTRA_DIST = example

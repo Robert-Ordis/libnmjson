@@ -1,1 +1,1 @@
-nobase_include_HEADERS = nmjson/*.h
+nobase_include_HEADERS = $(wildcard nmjson/*.h)
