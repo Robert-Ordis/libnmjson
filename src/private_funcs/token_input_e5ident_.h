@@ -5,6 +5,13 @@
 
 // https://262.ecma-international.org/5.1/#sec-7.6
 
+#ifndef	NMJSON_TRY_TO_BE_RIGID
+/**
+ *	\brief	ECMA5のIdentifierNameの規則にがっつり準ずるかどうか
+ */
+#define	NMJSON_TRY_TO_BE_RIGID 0
+#endif	/* !NMJSON_TRY_TO_BE_RIGID */
+
 static ssize_t determine_e5ident_(char *str, nmjson_superset_t superset){
 	//ECMAScript 5.1で定められた「IdentiferName」としての範囲を決定する
 	//標準空白か":"で終わる。
@@ -59,38 +66,44 @@ static ssize_t determine_e5ident_(char *str, nmjson_superset_t superset){
 		}
 		
 		//その他文字列
-		
-		if((unicode == '$' || unicode == '_') && load_len == 1){
-			cursor += load_len;
-			is_initial = 0;
-			continue;
-		}
-		else if(unicode_is_letter(unicode)){
-			cursor += load_len;
-			is_initial = 0;
-			continue;
-		}
-		
-		if(!is_initial){
-			if(unicode == 0x200C || unicode == 0x200D){
+		if(NMJSON_TRY_TO_BE_RIGID){
+			//厳しく見るならば、ECMA5の規則に従う。
+			if((unicode == '$' || unicode == '_') && load_len == 1){
 				cursor += load_len;
+				is_initial = 0;
 				continue;
 			}
-			else{
-				unicode_category_t uc = unicode_to_category(unicode);
-				switch(uc){
-				case unicode_category_mc:
-				case unicode_category_mn:
-				case unicode_category_nd:
-				case unicode_category_pc:
+			else if(unicode_is_letter(unicode)){
+				cursor += load_len;
+				is_initial = 0;
+				continue;
+			}
+			
+			if(!is_initial){
+				if(unicode == 0x200C || unicode == 0x200D){
 					cursor += load_len;
 					continue;
-				default:
-					break;
+				}
+				else{
+					unicode_category_t uc = unicode_to_category(unicode);
+					switch(uc){
+					case unicode_category_mc:
+					case unicode_category_mn:
+					case unicode_category_nd:
+					case unicode_category_pc:
+						cursor += load_len;
+						continue;
+					default:
+						break;
+					}
 				}
 			}
+		}else{
+			//SQLite3の場合、そこまでしていられないということで
+			//最低限終了やエスケープをカバーしていればいいという感じでやっているらしいです
+			cursor += load_len;
+			continue;
 		}
-		
 		//ダメな文字に突入した
 		return -1;
 	}
