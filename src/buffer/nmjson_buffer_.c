@@ -22,6 +22,7 @@ static void buffer_flush_(nmjson_buffer_t *self){
 static void buffer_dequeue_(nmjson_buffer_t *self, size_t parsed_len){
 	memmove(self->cmdbuf, &(self->cmdbuf[parsed_len]), (self->index + 1) - parsed_len);
 	self->index -= parsed_len;
+	self->cmdbuf[self->index] = '\0';
 	nmjson_parser_reset_as_superset(&(self->parser), self->private.superset);
 }
 
