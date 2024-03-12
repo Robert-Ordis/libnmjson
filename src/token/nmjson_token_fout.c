@@ -92,6 +92,17 @@ static ssize_t fout_encode_str_(const char* str, size_t str_len, int raw_utf, nm
 	return ret;
 }
 
+static inline int do_print_name_(const nmjson_token_t *self){
+	const nmjson_token_t *parent = self->parent;
+	if(parent == NULL){	//親がいない→独立した値オブジェクト
+		return 0;
+	}
+	if(parent->v.type != nmjson_type_object){
+		return 0;
+	}
+	return 1;
+}
+
 ssize_t nmjson_token_fout3(const nmjson_token_t *self, FILE *fp, int easy_to_look, int raw_utf, nmjson_superset_t superset){
 	ssize_t ret = 0;
 	int ret_flg = 0;
@@ -104,7 +115,8 @@ ssize_t nmjson_token_fout3(const nmjson_token_t *self, FILE *fp, int easy_to_loo
 			ret += fout_indent_(fp, indent);
 		}
 		//名前があるなら、コロンと一緒に出す。
-		if(token->n.len > 0 && !ret_flg){
+		//if(token->n.len > 0 && !ret_flg){
+		if(do_print_name_(token) && !ret_flg){
 			ret += (fputc('"', fp) == 0);
 			//ret += fwrite("\"", 1, 1, fp);
 			ret += fout_encode_str_(token->n.name, token->n.len, raw_utf, superset, fp);
