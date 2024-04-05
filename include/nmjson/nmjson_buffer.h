@@ -1,6 +1,6 @@
 /**
- *	\file	json_token.h
- *	\brief	JSONの値を示すトークンの構造体。
+ *	\file	nmjson_buffer.h
+ *	\brief	JSONを文字から読み込むためのバッファ構造
  */
 #ifndef	NMJSON_NMJSON_BUFFER_H_
 #define	NMJSON_NMJSON_BUFFER_H_
