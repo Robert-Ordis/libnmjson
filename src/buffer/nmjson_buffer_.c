@@ -20,7 +20,13 @@ static void buffer_flush_(nmjson_buffer_t *self){
 }
 
 static void buffer_dequeue_(nmjson_buffer_t *self, size_t parsed_len){
-	memmove(self->cmdbuf, &(self->cmdbuf[parsed_len]), (self->index + 1) - parsed_len);
+	if(self->index <= parsed_len){
+		//「データを詰め込んだ長さ」に対して「パースされた長さ」が追い越した
+		//→通常ありえない状況。だけど、ひとまずはバッファをクリアする
+		buffer_flush_(self);
+		return;
+	}
+	memmove(self->cmdbuf, &(self->cmdbuf[parsed_len]), self->index - parsed_len);
 	self->index -= parsed_len;
 	self->cmdbuf[self->index] = '\0';
 	nmjson_parser_reset_as_superset(&(self->parser), self->private.superset);
