@@ -5,7 +5,8 @@ testProgram_SOURCES = \
 	00-strbuf.c \
 	01-kitchen-sink.c \
 	02-cmd-stream.c \
-	03-kitchen-sink5.c 
+	03-kitchen-sink5.c \
+	04-kitchen-sink-rough.c 
 
 testProgram_LDADD = ../src/libnmjson.a
 
