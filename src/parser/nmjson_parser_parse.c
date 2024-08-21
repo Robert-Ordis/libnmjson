@@ -531,6 +531,7 @@ size_t				nmjson_parser_parse(nmjson_parser_t *self, char *src){
 			//→条件: JSON5であること、オブジェクトの配下であること、値が対象でないこと、入力モードであること。
 			if(!(
 				is_ecma5_(self) && 
+				self->token.vessel != NULL && 
 				self->token.vessel->v.type == nmjson_type_object && 
 				!self->is_treating_value
 			)){
