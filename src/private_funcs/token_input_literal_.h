@@ -94,7 +94,10 @@ static ssize_t determine_literal_(char *literal, nmjson_superset_t superset){
 			}
 			break;
 		case '\r':	//<CR>→それ単体の改行か、<CR><LF>であるかで微妙に処理が変わる。
-			if(nmjson_superset_has_linecontinuation(superset)){
+			if(nmjson_superset_allows_literalcntl(superset)){
+				in_escape = 0;
+			}
+			else if(nmjson_superset_has_linecontinuation(superset)){
 				if(in_escape){
 					//「次の文字」を見て、\nならOK。\0なら中断。それ以外は<CR>単体改行とみなす。
 					switch(*(cursor + 1)){
@@ -110,16 +113,23 @@ static ssize_t determine_literal_(char *literal, nmjson_superset_t superset){
 					}
 				}
 			}
-			//JSON5じゃないとか、エスケープしていないとかはめでたくNG。
-			return -1;
+			else {
+				//JSON5じゃないとか、エスケープしていないとかはめでたくNG。
+				return -1;
+			}
+			
 		case '\n':
-			if(nmjson_superset_has_linecontinuation(superset)){
+			if(nmjson_superset_allows_literalcntl(superset)){
+				in_escape = 0;
+			}
+			else if(nmjson_superset_has_linecontinuation(superset)){
 				//JSON5の場合、エスケープを付ければリテラル中の改行が許されている。らしい。
 				if(in_escape){
 					in_escape = 0;
 					break;
 				}
 			}
+			
 		default:
 			if(*cursor == literal_end){
 				//指定された文字列リテラルの終わり。
@@ -135,7 +145,10 @@ static ssize_t determine_literal_(char *literal, nmjson_superset_t superset){
 			if(in_escape){		//エスケープシーケンスの次に、エスケープ対象ではないものが来た
 				return -1;
 			}
-			if(iscntrl((uint8_t)*cursor)){	//制御文字の存在は許されていない
+			if(1 
+				&& iscntrl((uint8_t)*cursor)
+				&& !nmjson_superset_allows_literalcntl(superset)
+			){	//制御文字の存在は許されていない。特例を除き。
 				return -1;
 			}
 		}

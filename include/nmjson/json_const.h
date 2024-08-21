@@ -70,6 +70,8 @@ typedef enum nmjson_superset_e {
 	/// \brief JSON5: JSONCに加え、16進数の読み込みや小数の省略表記、\xHH, シングルクォート文字列等を追加。
 	nmjson_superset_json5,
 	
+	/// \brief 雑な文字列でも受け入れるための独自拡張
+	nmjson_superset_rough,
 } nmjson_superset_t;
 
 /// \brief		スーパーセット: コメントある？
@@ -90,7 +92,7 @@ typedef enum nmjson_superset_e {
 	
 /// \brief		スーパーセット: エスケープシーケンスもっとある？(\vとか\0)
 #define nmjson_superset_has_extescape(s) \
-	(s == nmjson_superset_json5)
+	(s == nmjson_superset_json5 || s == nmjson_superset_rough)
 	
 /// \brief		スーパーセット: \xXXできる？
 #define nmjson_superset_has_hexaescape(s) \
@@ -100,9 +102,13 @@ typedef enum nmjson_superset_e {
 #define nmjson_superset_has_literalsq(s) \
 	(s == nmjson_superset_json5)
 
-/// \brief		スーパーセット: リテラル中の改行OK？
+/// \brief		スーパーセット: リテラル中の改行OK？（ただし、直前のエスケープ必要）
 #define nmjson_superset_has_linecontinuation(s) \
 	(s == nmjson_superset_json5)
+
+/// \brief		リテラル中、エスケープなしでリテラル中の改行などを書いてもいいかどうか
+#define nmjson_superset_allows_literalcntl(s) \
+	(s == nmjson_superset_rough)
 
 #ifdef __cplusplus
 }
