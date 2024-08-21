@@ -1,52 +1,160 @@
 
-struct string_args_s {
-	
-}
 
-struct nmobj_builder_s {
-	nmjson_token_t	*active_head;
-	nmjson_token_t	*free_head;
-	
-	
-	
-};
+nmjson_builder_put_int(&builder, 200, "$", "test", "value", NULL);
 
-nmjson_builder_init_static(&builder, tokens, tokens_num, strbuf, strbuf_len);
-nmjson_builder_init_withheap(&builder);
+//$.test.dictに移動。(移動しただけでは末端はnullオブジェクト、という解釈)
+nmjson_builder_cd(&builder, "test", "dict", NULL);
 
-nmjson_builder_reset(&builder);
+//@(=$.test.dict).int = 500
+nmjson_builder_put_int(&builder, 500, "@", "int", NULL);
+
+//$.test.str = "string"
+nmjson_builder_put_str(&builder, "string", "$", "test", "str", NULL);
+
+//@(=$.test.dict).test.float = 0.5235
+nmjson_builder_put_float(&builder, 0.5235, , "@", "test", "float", NULL);
+
+//@(=$.test.dict).test.bool = true
+nmjson_builder_put_bool(&builder, 1, "@", "test", "bool", NULL);
+
+//@(=$.test.dict).test.arr[+(=追加値,0)] = 555
+nmjson_builder_put_int(&builder, 555, "@", "test", "arr", "[+]", NULL);
+
+//@(=$.test.dict.test.arr[+(=追加値,1)]に移動
+nmjson_builder_cd(&builder, 555, "@", "test", "arr", "[+]", NULL);
+
+//@(=$.test.dict.test.arr[1]).test.arr[+] = 556
+nmjson_builder_put_int(&builder, 556, "@", "test", "arr", "[+]", NULL);
+
+
 
 {
-	"res": {
-		"code": 200,
-		"time": 0.5,
-		"OK": true
+	"test": {
+		"value": 200,
+		
+		"dict": {
+			"int", 500,
+			"test":{
+				"float": 0.5235,
+				"bool": true,
+				"arr": [
+					555,
+					[
+						{
+							"test":{
+								"arr": [
+									556
+								]
+							}
+						}
+					]
+				]
+			}
+		}
 	},
-	"numbers":[
-		1,2,3,4,5,7
-	]
+
 }
 
-//最大で何個のトークンを検出できたかをまず数えてみるか。
+/**
+ *	\brief		JSON構造を作るための構造体を定義する。
+ *	\arg		self		:これから使うビルダー。
+ *	\arg		ptokens		:（ヒープメモリ使わない場合）素のトークン
+ *	\arg		tokens_num	:（ヒープメモリ使わない場合）ptokensの数。0の場合、全部ヒープにする。
+ *	\arg		str_buf		:（ヒープメモリ使わない場合）文字列データ(printf使った場合)のしまい先。
+ *	\arg		str_len		:（ープメモリ使わない場合）str_bufのメモリ長。0の場合、全部ヒープ。
+ */
+int nmjson_builder_init(nmjson_builder_t *self, 
+	nmjson_token_t ptokens[], size_t tokens_num, 
+	char *str_buf, size_t str_len
+);
 
-nmjson_builder_cd(&builder, "$.res");
-nmjson_builder_set_int(&builder, "@.code", 200);
-nmjson_builder_set_float(&builder, "@.time", 0.5);
-nmjson_builder_set_bool(&builder, "@['OK']", 1);
+/**
+ *	\brief		builderを初期値に戻す。
+ *	\remarks	alloc系でやっていたら必ず呼ぶべし。
+ */
+int nmjson_builder_clear(nmjson_builder_t *self);
 
-nmjson_builder_cd(&builder, "$.numbers");
-nmjson_builder_set_int(&builder, "@[+]", 1);
-nmjson_builder_set_int(&builder, "@[+]", 2);
-nmjson_builder_set_int(&builder, "@[+]", 3);
-nmjson_builder_set_int(&builder, "@[+]", 4);
-nmjson_builder_set_int(&builder, "@[+]", 5);
+/**
+ *	\brief		JSON構造を作りつつ、現在地に移動する
+ *	\arg		self		:ビルダー
+ *	\arg		start_mark	:探索の始め方。下記の通りとなる。
+ *					"@"→現在地点
+ *					"$"→ルートオブジェクト
+ *	\arg		...			:(可変長引数)start_markから指定した要素名。以下の特殊例含む
+ *					"[+]"→(現在地/ルートが配列用)要素を1個追加し、それを扱う
+ *					"[n]"→(現在地/ルートが配列用)指定した番地の要素(0スタート。先頭から)
+ *					"[-n]"→(現在地/ルートが配列用)指定した番地の要素(末尾からカウント)
+ *					NULL→必ず末端に追加する。破ったら多分セグフォる。
+ *
+ *	\return		作成されたJSONトークン(ブックマーク)。エラーの場合はNULL。
+ *	\remarks	本関数でアクセスされた要素は、末端をNULL(=未入力)として扱う。
+ */
+const nmjson_token_t *nmjson_builder_cd(nmjson_builder_t *self, const char *start_mark, ...);
 
-nmjson_builder_cd_parent(&builder, 1);
-nmjson_builder_set_int(&builder, "@.numbers[+]", 6);
-nmjson_builder_set_int(&builder, "@.numbers[-1]", 7);
+/**
+ *	\brief		現在地の上位に移動する
+ *	\arg		self		:ビルダー
+ *
+ *	\return		移動先のJSONトークン(ブックマーク)。もうrootならNULL？
+ */
+const nmjson_token_t *nmjson_builder_cd_parent(nmjson_builder_t *self);
 
-nmjson_builder_set_const_string(&builder, "@.てすと", "あからさま");
-//only unicode is allowed.
-nmjson_builder_set_const_string(&builder, "@.\\u2356\\u3333['\\u1234\\uA7F5']", "\\u5555");
+/**
+ *	\brief		指定地の直下に、sprintfで書かれるパス一つをnullで作る。
+ *	\arg		self		:ビルダー
+ *	\arg		start_mark	:探索の始め方
+ *					"@"→現在地点
+ *					"$"→ルートオブジェクト
+ *	\arg		fmt			:大方printfファミリーと同様。
+ *	\remarks	本関数では、他関数に見られる特殊なパス表記は適用されない
+ */
+const nmjson_token_t *nmjson_builder_cd_sprintf(nmjson_buider_t *self, const char *start_mark, const char *fmt, ...);
 
+/**
+ *	\brief		指定のトークンに現在地を移す
+ *	\arg		self				:ビルダー
+ *	\arg		ptoken_bookmark		:cdの時に取得したトークン
+ *
+ *	\return		>= 0		:正常終了。書き込めたサイズ。
+ *	\return		<  0		:異常終了。errnoあり。
+ */
+int	nmjson_builder_cd_obj(nmjson_builder_t *self, const nmjson_token_t *ptoken_bookmark);
 
+/**
+ *	\brief		現在地に直接文字列を書き込む
+ *	\arg		self		:ビルダー
+ *	\arg		format		:printfファミリーに準ずる
+ *
+ *	\return		>= 0		:正常終了。書き込めたサイズ。
+ *	\return		<  0		:異常終了。-1はprintf準拠。-2は本関数独自。
+ *	\exception	ENOMEM		:builderに割り当てた文字列バッファがもう足りない。
+ */
+ssize_t	nmjson_builder_put_sprintf(nmjson_builder_t *self, const char *format, ...);
+
+/**
+ *	\brief		JSON値を追加する
+ *	\arg		self		:ビルダー
+ *	\arg		value		:追加したい値
+ *	\arg		start_mark	:探索の始め方。下記の通りとなる。
+ *					"@"→現在地点
+ *					"$"→ルートオブジェクト
+ *	\arg		...			:(可変長引数)start_markから指定した要素名。以下の特殊例含む
+ *					"[+]"→(現在地/ルートが配列用)要素を1個追加し、それを扱う
+ *					"[n]"→(現在地/ルートが配列用)指定した番地の要素(0スタート。先頭から)
+ *					"[-n]"→(現在地/ルートが配列用)指定した番地の要素(末尾からカウント)
+ *					NULL→必ず末端に追加する。いきなりNULLの場合、start_markで指定されるものを直接扱う
+ */
+nmjson_builder_put_xxx(nmjson_builder_t *self, xxx_t value, const char *start_mark, ...);
+
+/**
+ *	\brief		JSONトークンを丸ごとコピーする
+ *	\arg		self		:ビルダー
+ *	\arg		ptoken_src	:コピー元。ptoken_srcが持つ名前は無視される。
+ *	\arg		start_mark	:探索の始め方。以下略
+ *	\arg		...			:(可変長引数)start_markから指定した要素名。以下略。
+ *	\return		>= 0		:追加された要素数
+ *	\return		< 0			:エラー。ENOMEMくらいか？
+ */
+nmjson_builder_copy_json(nmjson_builder_t *self, const nmjson_token_t *token_src, const char *start_mark, ...);
+
+/// \todo 「不定長の配列」に対してどうするべき？
