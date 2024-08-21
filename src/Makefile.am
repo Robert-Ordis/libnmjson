@@ -19,8 +19,8 @@ libnmjson_a_SOURCES = \
 
 libnmjson_a_CFLAGS = $(AM_CFLAGS) \
 	-DVER_MAJOR=0 \
-	-DVER_MINOR=7 \
-	-DVER_PATCH=4 \
+	-DVER_MINOR=8 \
+	-DVER_PATCH=0 \
 	-DVER_TAILS= \
 	-DPROJECT_NAME=\"libnmjson\" \
 	-DBUILD_DATE=\"$(shell date +'%Y-%m-%d_%H:%M:%S')\" \

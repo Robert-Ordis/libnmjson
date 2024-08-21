@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([libnmjson], [0.7.4], [BUG-REPORT-ADDRESS])
+AC_INIT([libnmjson], [0.8.0], [BUG-REPORT-ADDRESS])
 AM_INIT_AUTOMAKE([foreign])
 AC_CONFIG_SRCDIR([include/nmjson/json_const.h])
 AC_CONFIG_HEADERS([config.h])
