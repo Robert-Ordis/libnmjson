@@ -23,6 +23,8 @@ void test01(){
 	char cbuf[CBUF_NUM];
 	int fd = -1;
 	
+	ssize_t out_len;
+	
 	printf("%s: \n", __func__);
 	
 	nmjson_parser_init(&parser, tokens, TOKENS_NUM);
@@ -54,7 +56,9 @@ void test01(){
 	}
 	
 	nmjson_parser_dbg_print(&parser, printf);
-	nmjson_token_fout2(parser.token.root, stdout, 1, 1);
+	out_len = nmjson_token_fout2(parser.token.root, stdout, 1, 1);
+	
+	printf("%s: %p wrote %zd [bytes]\n", __func__, parser.token.root, out_len);
 	
 	if(parser.error.code == nmjson_error_complete){
 		

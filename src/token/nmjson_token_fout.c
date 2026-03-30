@@ -5,54 +5,67 @@
 #include "include/nmjson/utf8.h"
 
 #include "../local_header/linear_linker.h"
+#include "../local_header/swriter.h"
 
-static ssize_t fout_indent_(FILE *fp, unsigned int indent){
+static ssize_t sout_indent_(swriter_t *pwriter, unsigned int indent){
 	char c = '\n';
 	ssize_t ret = 0;
+	ssize_t was = pwriter->written;
 	
-	ret += (fputc(c, fp) == 0);
+	if(swriter_putc_(pwriter, c) < 0){
+		return -1;
+	}
+	
 	if(indent <= 0){
-		return ret;
+		return pwriter->written - was;
 	}
 	
 	c = '\t';
 	for(; indent > 0; indent --){
-		ret += fwrite("    ", 1, 4, fp);
-		//ret += (fputc(c, fp) == 0);
+		if(swriter_write_(pwriter, "    ", 1, 4) < 0){
+			return -1;
+		}
+		//if(swriter_putc_(pwriter, c) < 0){
+		//	return -1;
+		//}
 	}
-	return ret;
+	return pwriter->written - was;
 }
 
-static ssize_t fout_encode_str_(const char* str, size_t str_len, int raw_utf, nmjson_superset_t superset, FILE *fp){
+static ssize_t sout_encode_str_(swriter_t *pwriter, const char* str, size_t str_len, int raw_utf, nmjson_superset_t superset){
 	int i;
-	ssize_t ret = 0;
+	ssize_t tmp = 0;
+	ssize_t was = pwriter->written;
 	for(i = 0; i < str_len;){
+		if(tmp < 0){
+			return -1;
+		}
 		switch(str[i]){
 		case '"':
-			ret += fwrite("\\\"", 1, 2, fp);
+			tmp = swriter_write_(pwriter, "\\\"", 1, 2);
 			break;
 		case '\\':
-			ret += fwrite("\\\\", 1, 2, fp);
+			tmp = swriter_write_(pwriter, "\\\\", 1, 2);
 			break;
 		case '\b':
-			ret += fwrite("\\b", 1, 2, fp);
+			tmp = swriter_write_(pwriter, "\\b", 1, 2);
 			break;
 		case '\f':
-			ret += fwrite("\\f", 1, 2, fp);
+			tmp = swriter_write_(pwriter, "\\f", 1, 2);
 			break;
 		case '\n':
-			ret += fwrite("\\n", 1, 2, fp);
+			tmp = swriter_write_(pwriter, "\\n", 1, 2);
 			break;
 		case '\r':
-			ret += fwrite("\\r", 1, 2, fp);
+			tmp = swriter_write_(pwriter, "\\r", 1, 2);
 			break;
 		case '\t':
-			ret += fwrite("\\t", 1, 2, fp);
+			tmp = swriter_write_(pwriter, "\\t", 1, 2);
 			break;
 		default:
 			if(iscntrl((uint8_t)str[i])){
 				//制御文字は必ずエスケープ
-				ret += fprintf(fp, "\\u%04X", (uint8_t)str[i]);
+				tmp = swriter_printf_(pwriter, "\\u%04X", (uint8_t)str[i]);
 				i++;
 				continue;
 			}
@@ -64,32 +77,33 @@ static ssize_t fout_encode_str_(const char* str, size_t str_len, int raw_utf, nm
 					//→そのまま出すとエラーを吐いてしまう。
 					//ret += fputc(str[i], fp) == 0;
 					if(nmjson_superset_has_hexaescape(superset)){
-						ret += fprintf(fp, "\\x%02x", (uint8_t)str[i]);
+						tmp = swriter_printf_(pwriter, "\\x%02x", (uint8_t)str[i]);
 					}
 					else{
-						ret += fprintf(fp, "#%03u", (uint8_t)str[i]);
+						tmp = swriter_printf_(pwriter, "#%03u", (uint8_t)str[i]);
 					}
-					i ++;
+					i++;
 					continue;
 				}
 				i += r;
 				if(unicode < 0x010000){
-					ret += fprintf(fp, "\\u%04X", unicode);
+					tmp = swriter_printf_(pwriter, "\\u%04X", unicode);
 				}
 				else{	//サロゲートペアに変換
 					unicode -= 0x010000;
-					ret += fprintf(fp, "\\u%04X\\u%04X", (unicode / 0x400 + 0xD800), (unicode % 0x400 + 0xDC00));
+					tmp = swriter_printf_(pwriter, "\\u%04X\\u%04X"
+						, (unicode / 0x400 + 0xD800), (unicode % 0x400 + 0xDC00));
 				}
 				continue;
 			}
 			//エスケープしないASCII
-			ret += (fputc(str[i], fp) == 0);
+			tmp = swriter_putc_(pwriter, str[i]);
 			break;
 		}
 		
 		i++;
 	}
-	return ret;
+	return pwriter->written - was;
 }
 
 static inline int do_print_name_(const nmjson_token_t *self){
@@ -109,18 +123,28 @@ ssize_t nmjson_token_fout3(const nmjson_token_t *self, FILE *fp, int easy_to_loo
 	unsigned int indent = 0;
 	
 	const nmjson_token_t *token = self;
+	swriter_t swriter;
+	swriter_init_(&swriter, fp);
 	
 	while(token != NULL){
+		const char *s;
+		size_t s_len;
+		char c;
 		if(easy_to_look){
-			ret += fout_indent_(fp, indent);
+			ret += sout_indent_(&swriter, indent);
 		}
 		//名前があるなら、コロンと一緒に出す。
 		//if(token->n.len > 0 && !ret_flg){
 		if(do_print_name_(token) && !ret_flg){
-			ret += (fputc('"', fp) == 0);
-			//ret += fwrite("\"", 1, 1, fp);
-			ret += fout_encode_str_(token->n.name, token->n.len, raw_utf, superset, fp);
-			ret += fwrite("\":", 1, 2, fp);
+			if(swriter_putc_(&swriter, '"') < 0){
+				return -1; 
+			}
+			if(sout_encode_str_(&swriter, token->n.name, token->n.len, raw_utf, superset) < 0){
+				return -1;
+			}
+			if(swriter_write_(&swriter, "\":", 1, 2) < 0){
+				return -1;
+			}
 		}
 		
 		//タイプごとにふさわしい出力を出す。
@@ -128,7 +152,10 @@ ssize_t nmjson_token_fout3(const nmjson_token_t *self, FILE *fp, int easy_to_loo
 		case nmjson_type_object:
 		case nmjson_type_array:
 			if(!ret_flg){	//このトークンは配下からの帰還したヤツではない。→オブジェクト/配列の始め。
-				ret += fputc((token->v.type == nmjson_type_array) ? '[':'{', fp);
+				c = (token->v.type == nmjson_type_array) ? '[':'{';
+				if(swriter_putc_(&swriter, c) < 0){
+					return -1;
+				}
 				if(token->v.value.o != NULL){		//子がいるのなら、インデントを1個下げる。
 					indent ++;
 					token = token->v.value.o;
@@ -137,49 +164,64 @@ ssize_t nmjson_token_fout3(const nmjson_token_t *self, FILE *fp, int easy_to_loo
 			}
 			
 			//オブジェクト/配列の終わり。子がいない場合は直接ここに来る。
-			ret += (fputc((token->v.type == nmjson_type_array) ? ']':'}', fp) == 0);
+			c = (token->v.type == nmjson_type_array) ? ']':'}';
+			if(swriter_putc_(&swriter, c) < 0){
+				return -1;
+			}
 			ret_flg = 0;
 			break;
 			
 		case nmjson_type_bool:
-			ret += fwrite(token->v.value.b ? "true":"false", 1, token->v.value.b ? 4:5, fp);
+			s = token->v.value.b ? "true":"false";
+			if(swriter_write_(&swriter, s, 1, strlen(s)) < 0){
+				return -1;
+			}
 			break;
 			
 		case nmjson_type_integer:
-			ret += fprintf(fp, "%"PRId64"", token->v.value.i);
+			if(swriter_printf_(&swriter, "%"PRId64"", token->v.value.i) < 0){
+				return -1;
+			}
 			break;
 			
 		case nmjson_type_float:
 			//InfやNaNを投げ込まれていた場合は残念だけど文字列にする。
 			if(isnan(token->v.value.d)){
-				if(nmjson_superset_has_extnum(superset)){
-					ret += fwrite("NaN", 1, 3, fp);
-				}
-				else{
-					ret += fwrite("\"NaN\"", 1, 5, fp);
+				s = nmjson_superset_has_extnum(superset) ? "NaN" : "\"NaN\"";
+				if(swriter_write_(&swriter, s, 1, strlen(s)) < 0){
+					return -1;
 				}
 			}
 			else if(isinf(token->v.value.d)){
 				if(nmjson_superset_has_extnum(superset)){
-					ret += fwrite(token->v.value.d < 0.0 ? "-Infinity":"Infinity", 1, token->v.value.d < 0.0 ? 9:8, fp);
+					s = (token->v.value.d < 0.0) ? "-Infinity":"Infinity";
 				}
 				else{
-					ret += fwrite(token->v.value.d < 0.0 ? "\"-Infinity\"":"\"Infinity\"", 1, token->v.value.d < 0.0 ? 11:10, fp);
+					s = (token->v.value.d < 0.0) ? "\"-Infinity\"":"\"Infinity\"";
+				}
+				if(swriter_write_(&swriter, s, 1, strlen(s)) < 0){
+					return -1;
 				}
 			}
 			else{
-				ret += fprintf(fp, "%f", token->v.value.d);
+				if(swriter_printf_(&swriter, "%f", token->v.value.d) < 0){
+					return -1;
+				}
 			}
 			break;
 			
 		case nmjson_type_null:
-			ret += fwrite("null", 1, 4, fp);
+			if(swriter_write_(&swriter, "null", 1, 4) < 0){
+				return -1;
+			}
 			break;
 			
 		case nmjson_type_string:
-			ret += (fputc('"', fp) == 0);
-			ret += fout_encode_str_(token->v.value.s, token->v.len, raw_utf, superset, fp);
-			ret += (fputc('"', fp) == 0);
+			if(swriter_putc_(&swriter, '"') < 0){ return -1; }
+			if(sout_encode_str_(&swriter, token->v.value.s, token->v.len, raw_utf, superset) < 0){
+				return -1;
+			}
+			if(swriter_putc_(&swriter, '"') < 0){ return -1; }
 			break;
 			
 		default:
@@ -191,7 +233,7 @@ ssize_t nmjson_token_fout3(const nmjson_token_t *self, FILE *fp, int easy_to_loo
 		}
 		else if(token->sibling_link.next){
 			token = token->sibling_link.next;
-			ret += (fputc(',', fp) == 0);
+			if(swriter_putc_(&swriter, ',') < 0){ return -1; }
 		}
 		else{
 			token = token->parent;
@@ -201,9 +243,9 @@ ssize_t nmjson_token_fout3(const nmjson_token_t *self, FILE *fp, int easy_to_loo
 		
 	}
 	if(easy_to_look){
-		ret += (fputc('\n', fp) == 0);
+		if(swriter_putc_(&swriter, '\n') < 0){ return -1; }
 	}
-	return ret;
+	return swriter.written;
 }
 
 ssize_t	nmjson_token_fout2(const nmjson_token_t *self, FILE *fp, int easy_to_look, int raw_utf){
