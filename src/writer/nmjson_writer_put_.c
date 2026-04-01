@@ -22,8 +22,8 @@ static inline ssize_t write_raw_(nmjson_writer_t *self, ssize_t *acc_ret, const 
 	return one_ret;
 }
 
-static ssize_t write_esc_(nmjson_writer_t *self, ssize_t *acc_ret, const char *s){
-	size_t slen = strlen(s);
+static ssize_t write_esc_(nmjson_writer_t *self, ssize_t *acc_ret, const char *s, size_t slen){
+	//size_t slen = strlen(s);
 	int i = 0;
 	
 	int start_idx = 0;
@@ -53,7 +53,7 @@ static ssize_t write_esc_(nmjson_writer_t *self, ssize_t *acc_ret, const char *s
 			esc_ = "\\t"; esc_len = 2;
 			break;
 		case '\0':
-			esc_ = ""; esc_len = 0;
+			esc_ = "\\u0000"; esc_len = 6;
 			break;
 		default:
 			if(iscntrl((uint8_t)s[i])){
@@ -87,12 +87,12 @@ static ssize_t write_esc_(nmjson_writer_t *self, ssize_t *acc_ret, const char *s
 }
 
 
-static inline ssize_t write_str_(nmjson_writer_t *self, ssize_t *acc_ret, const char *s){
+static inline ssize_t write_str_(nmjson_writer_t *self, ssize_t *acc_ret, const char *s, size_t l){
 	ssize_t one_ret;
 	if(write_raw_(self, acc_ret, "\"", 1) < 0){
 		return -1;
 	}
-	if(write_esc_(self, acc_ret, s) < 0){	//エスケープしつつ文字列を書く
+	if(write_esc_(self, acc_ret, s, l) < 0){	//エスケープしつつ文字列を書く
 		return -1;
 	}
 	if(write_raw_(self, acc_ret, "\"", 1) < 0){
@@ -152,9 +152,9 @@ static ssize_t write_before_token_(nmjson_writer_t *self, ssize_t *acc_ret){
 	return 0;
 }
 
-static inline ssize_t write_key_(nmjson_writer_t *self, ssize_t *acc_ret, const char *key){
-	if(key != NULL){
-		if(write_str_(self, acc_ret, key) < 0){
+static inline ssize_t write_key_(nmjson_writer_t *self, ssize_t *acc_ret, const nmjson_str_t *key){
+	if(key != NULL && key->s != NULL){
+		if(write_str_(self, acc_ret, key->s, key->len) < 0){
 			return -1;
 		}
 		return (self->cfg.pretty_print)
@@ -195,7 +195,7 @@ static inline ssize_t write_key_(nmjson_writer_t *self, ssize_t *acc_ret, const 
  *	\return	>= 0			: 成功。書き込んだ文字数
  *	\return	 < 0			: 失敗
  */
-ssize_t	nmjson_writer_begin(nmjson_writer_t *self, const char *key, nmjson_type_t container_type){
+ssize_t	nmjson_writer_begin_n(nmjson_writer_t *self, const nmjson_str_t *key, nmjson_type_t container_type){
 	int ret = -1;
 	int err = 0;
 	ssize_t val_ret = 0;
@@ -223,6 +223,20 @@ ssize_t	nmjson_writer_begin(nmjson_writer_t *self, const char *key, nmjson_type_
 		put_err_(self, err, err_at);
 	}
 	return ret;
+}
+
+/**
+ *	\brief		整数の書き出し
+ *	\arg		self			: writeオブジェクト
+ *	\arg		key				: 追加するトークンの名前。配列下ならNULL。
+ *	\arg		val				: 整数値
+ *	\return	>= 0			: 成功。書き込んだ文字数
+ *	\return	 < 0			: 失敗
+ */
+ssize_t nmjson_writer_begin(nmjson_writer_t *self, const char *key, nmjson_type_t container_type){
+	nmjson_str_t nstr;
+	nmjson_str_init(&nstr, key);
+	return nmjson_writer_begin_n(self, &nstr, container_type);
 }
 
 /**
@@ -282,7 +296,7 @@ ssize_t	nmjson_writer_end(nmjson_writer_t *self, nmjson_type_t container_type){
  *	\return	>= 0			: 成功。書き込んだ文字数
  *	\return	 < 0			: 失敗
  */
-ssize_t nmjson_writer_put_nullobj(nmjson_writer_t *self, const char *key){
+ssize_t nmjson_writer_put_nullobj_n(nmjson_writer_t *self, const nmjson_str_t *key){
 	int ret = -1;
 	int err = 0;
 	ssize_t val_ret = 0;
@@ -299,6 +313,20 @@ ssize_t nmjson_writer_put_nullobj(nmjson_writer_t *self, const char *key){
 	return ret;
 }
 
+/**
+ *	\brief		整数の書き出し
+ *	\arg		self			: writeオブジェクト
+ *	\arg		key				: 追加するトークンの名前。配列下ならNULL。
+ *	\arg		val				: 整数値
+ *	\return	>= 0			: 成功。書き込んだ文字数
+ *	\return	 < 0			: 失敗
+ */
+ssize_t nmjson_writer_put_nullobj(nmjson_writer_t *self, const char *key){
+	nmjson_str_t nstr;
+	nmjson_str_init(&nstr, key);
+	return nmjson_writer_put_nullobj_n(self, &nstr);
+}
+
 
 /**
  *	\brief		bool の書き出し
@@ -308,7 +336,7 @@ ssize_t nmjson_writer_put_nullobj(nmjson_writer_t *self, const char *key){
  *	\return	>= 0			: 成功。書き込んだ文字数
  *	\return	 < 0			: 失敗
  */
-ssize_t nmjson_writer_put_bool(nmjson_writer_t *self, const char *key, int val){
+ssize_t nmjson_writer_put_bool_n(nmjson_writer_t *self, const nmjson_str_t *key, int val){
 	int ret = -1;
 	int err = 0;
 	ssize_t val_ret = 0;
@@ -341,7 +369,21 @@ ssize_t nmjson_writer_put_bool(nmjson_writer_t *self, const char *key, int val){
  *	\return	>= 0			: 成功。書き込んだ文字数
  *	\return	 < 0			: 失敗
  */
-ssize_t nmjson_writer_put_int(nmjson_writer_t *self, const char *key, int64_t val){
+ssize_t nmjson_writer_put_bool(nmjson_writer_t *self, const char *key, int val){
+	nmjson_str_t nstr;
+	nmjson_str_init(&nstr, key);
+	return nmjson_writer_put_bool_n(self, &nstr, val);
+}
+
+/**
+ *	\brief		整数の書き出し
+ *	\arg		self			: writeオブジェクト
+ *	\arg		key				: 追加するトークンの名前。配列下ならNULL。
+ *	\arg		val				: 整数値
+ *	\return	>= 0			: 成功。書き込んだ文字数
+ *	\return	 < 0			: 失敗
+ */
+ssize_t nmjson_writer_put_int_n(nmjson_writer_t *self, const nmjson_str_t *key, int64_t val){
 	int ret = -1;
 	int err = 0;
 	ssize_t val_ret = 0;
@@ -373,7 +415,21 @@ ssize_t nmjson_writer_put_int(nmjson_writer_t *self, const char *key, int64_t va
  *	\return	>= 0			: 成功。書き込んだ文字数
  *	\return	 < 0			: 失敗
  */
-ssize_t nmjson_writer_put_uint(nmjson_writer_t *self, const char *key, uint64_t val){
+ssize_t nmjson_writer_put_int(nmjson_writer_t *self, const char *key, int64_t val){
+	nmjson_str_t nstr;
+	nmjson_str_init(&nstr, key);
+	return nmjson_writer_put_int_n(self, &nstr, val);
+}
+
+/**
+ *	\brief		整数の書き出し
+ *	\arg		self			: writeオブジェクト
+ *	\arg		key				: 追加するトークンの名前。配列下ならNULL。
+ *	\arg		val				: 整数値
+ *	\return	>= 0			: 成功。書き込んだ文字数
+ *	\return	 < 0			: 失敗
+ */
+ssize_t nmjson_writer_put_uint_n(nmjson_writer_t *self, const nmjson_str_t *key, uint64_t val){
 	int ret = -1;
 	int err = 0;
 	ssize_t val_ret = 0;
@@ -397,6 +453,13 @@ ssize_t nmjson_writer_put_uint(nmjson_writer_t *self, const char *key, uint64_t 
 	return ret;
 }
 
+ssize_t nmjson_writer_put_uint(nmjson_writer_t *self, const char *key, uint64_t val){
+	nmjson_str_t nstr;
+	nmjson_str_init(&nstr, key);
+	return nmjson_writer_put_uint_n(self, &nstr, val);
+}
+
+
 /**
  *	\brief		実数の書き出し（%g フォーマット）
  *	\arg		self			: writeオブジェクト
@@ -405,7 +468,7 @@ ssize_t nmjson_writer_put_uint(nmjson_writer_t *self, const char *key, uint64_t 
  *	\return	>= 0			: 成功。書き込んだ文字数
  *	\return	 < 0			: 失敗
  */
-ssize_t nmjson_writer_put_float(nmjson_writer_t *self, const char *key, double val){
+ssize_t nmjson_writer_put_float_n(nmjson_writer_t *self, const nmjson_str_t *key, double val){
 	int ret = -1;
 	int err = 0;
 	ssize_t val_ret = 0;
@@ -430,6 +493,13 @@ ssize_t nmjson_writer_put_float(nmjson_writer_t *self, const char *key, double v
 	return ret;
 }
 
+ssize_t nmjson_writer_put_float(nmjson_writer_t *self, const char *key, double val){
+	nmjson_str_t nstr;
+	nmjson_str_init(&nstr, key);
+	return nmjson_writer_put_float_n(self, &nstr, val);
+}
+
+
 /**
  *	\brief		文字列の書き出し（エスケープ処理込み）
  *	\arg		self			: writeオブジェクト
@@ -438,15 +508,16 @@ ssize_t nmjson_writer_put_float(nmjson_writer_t *self, const char *key, double v
  *	\return	>= 0			: 成功。書き込んだ文字数
  *	\return	 < 0			: 失敗
  */
-ssize_t nmjson_writer_put_string(nmjson_writer_t *self, const char *key, const char *val){
+ssize_t nmjson_writer_put_string_n(nmjson_writer_t *self, const nmjson_str_t *key, const char *val){
 	int ret = -1;
 	int err = 0;
 	ssize_t val_ret = 0;
 	const char *err_at = NULL;
+	if(val == NULL){
+		return nmjson_writer_put_nullobj_n(self, key);
+	}
 	write_frame_token_(self, &ret, &err, &err_at, key, "string", {
-		char buf[32];
-		ssize_t slen;
-		if(write_str_(self, &acc_ret, buf) < 0){
+		if(write_str_(self, &acc_ret, val, strlen(val)) < 0){
 			err = errno; err_at = "write_raw_(string)";
 			break;
 		}
@@ -456,3 +527,11 @@ ssize_t nmjson_writer_put_string(nmjson_writer_t *self, const char *key, const c
 	}
 	return ret;
 }
+
+ssize_t nmjson_writer_put_string(nmjson_writer_t *self, const char *key, const char *val){
+	nmjson_str_t nstr;
+	nmjson_str_init(&nstr, key);
+	return nmjson_writer_put_string_n(self, &nstr, val);
+}
+
+
