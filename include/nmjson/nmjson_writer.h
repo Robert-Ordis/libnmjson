@@ -136,7 +136,7 @@ void	nmjson_writer_cfg_utf8_raw(nmjson_writer_t *self, int flag);
  *	\return	>= 0			: 成功。書き込んだ文字数
  *	\return	 < 0			: 失敗
  */
-ssize_t	nmjson_writer_begin_n_n(nmjson_writer_t *self, const nmjson_str_t *key, nmjson_type_t container_type);
+ssize_t	nmjson_writer_begin_n(nmjson_writer_t *self, const nmjson_str_t *key, nmjson_type_t container_type);
 
 /**
  *	\brief		null の書き出し
