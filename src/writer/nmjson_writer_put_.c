@@ -173,14 +173,11 @@ static inline ssize_t write_comma_(nmjson_writer_t *self, ssize_t *acc_ret){
 static inline ssize_t write_indent_(nmjson_writer_t *self, ssize_t *acc_ret){
 	int depth = (self->cfg.pretty_print) ? self->state.depth : 0;
 	ssize_t ret = 0;
-	while(depth){
-		ssize_t tmp_ret;
+	while(depth > 0){
 		if(write_raw_(self, acc_ret, "  ", 2) < 0){
 			ret = -1;
 			break;
 		}
-		
-		ret += tmp_ret;
 		depth --;
 	}
 	return ret;
