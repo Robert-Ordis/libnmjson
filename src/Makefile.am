@@ -14,6 +14,9 @@ libnmjson_a_SOURCES = \
 	private_funcs/token_parse_.h \
 	private_funcs/token_parse_comment_.h \
 	token/nmjson_token_fout.c \
+	writer/nmjson_writer_init_.c \
+	writer/nmjson_writer_cfg_.c \
+	writer/nmjson_writer_put_.c \
 	unicode/utf8_.c 
 	
 

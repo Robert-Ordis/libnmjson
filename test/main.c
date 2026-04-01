@@ -11,6 +11,7 @@ void test02_1();
 void test02_2();
 void test03();
 void test04();
+void test10();
 
 int main(int argc, char *argv[]){
 	test00();
@@ -19,5 +20,6 @@ int main(int argc, char *argv[]){
 	test02_2();
 	test03();
 	test04();
+	test10();
 	return 0;
 }
