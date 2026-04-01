@@ -30,7 +30,7 @@ void test10(){
 		nstr.s = "v_\0int"; nstr.len = 6;
 		nmjson_writer_put_int_n(&writer, &nstr, 1);
 		
-		nmjson_writer_with_array(&writer, "v_arr", {
+		nmjson_writer_with_array(&writer, "v_aあrr", {
 			int i;
 			for(i = 0; i < 32; i++){
 				nmjson_writer_put_int(&writer, NULL, i);
@@ -42,6 +42,15 @@ void test10(){
 				nmjson_writer_put_float(&writer, NULL, (double)i);
 			}
 		});
+		nmjson_writer_with_array(&writer, "v_すｔr", {
+			char buf[64];
+			int i;
+			for(i = 0; i < 16; i++){
+				sprintf(buf, "\r%03dばんめstr\n", i);
+				nmjson_writer_put_string(&writer, NULL, buf);
+			}
+		});
+		nmjson_writer_put_string(&writer, "try_surrogate", "🙃←何ｺﾚ");
 	});
 	printf("\n");
 }

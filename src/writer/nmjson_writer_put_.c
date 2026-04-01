@@ -22,14 +22,48 @@ static inline ssize_t write_raw_(nmjson_writer_t *self, ssize_t *acc_ret, const 
 	return one_ret;
 }
 
+/// \brief バイナリ列を「16進文字列」に書き換える。sprintfだとちょっと手間がかかりすぎるので。
+static void inline hexstr_from_bin_(char *out, uint8_t in){
+	const static char tbl[] = "0123456789ABCDEF";
+	uint8_t half;
+	
+	half = (in >> 4) & 0x0F;
+	out[0] = tbl[half];
+	
+	half = (in >> 0) & 0x0F;
+	out[1] = tbl[half];
+	
+}
+
+static inline size_t encode_u_(char *out, uint32_t unicode){
+	int idx = 0;
+	if(unicode < 0x010000){
+		uint8_t hi = (unicode >> 8) & 0x00FF;
+		uint8_t lo = (unicode     ) & 0x00FF;
+		out[0] = '\\';
+		out[1] = 'u';
+		hexstr_from_bin_(&out[2], hi);
+		hexstr_from_bin_(&out[4], lo);
+		return 6;
+	}
+	else{
+		uint32_t hi, lo;
+		unicode -= 0x010000;
+		encode_u_(&out[0], (unicode / 0x400 + 0xD800));
+		encode_u_(&out[6], (unicode % 0x400 + 0xDC00));
+		return 12;
+	}
+}
+
 static ssize_t write_esc_(nmjson_writer_t *self, ssize_t *acc_ret, const char *s, size_t slen){
 	//size_t slen = strlen(s);
 	int i = 0;
-	
+	char encoded[32];
 	int start_idx = 0;
 	while(i < slen){
 		const char *esc_ = NULL;
-		size_t esc_len = 1;
+		size_t esc_len = 0;
+		size_t seq_len = 1;	//utf-8読み込みで進めた数
 		switch(s[i]){
 		case '"':
 			esc_ = "\\\""; esc_len = 2;
@@ -52,33 +86,47 @@ static ssize_t write_esc_(nmjson_writer_t *self, ssize_t *acc_ret, const char *s
 		case '\t':
 			esc_ = "\\t"; esc_len = 2;
 			break;
-		case '\0':
-			esc_ = "\\u0000"; esc_len = 6;
-			break;
 		default:
 			if(iscntrl((uint8_t)s[i])){
-				/// \todo 制御文字は必ずエスケープ
-				i++;
-				continue;
+				/// \note 制御文字は必ずエスケープ
+				esc_ = encoded; esc_len = encode_u_(encoded, (uint32_t)s[i]);
+				break;
 			}
 			if(!(self->cfg.utf8_raw) && (s[i] & 0xE0) >= 0xC0){
-				/// \todo utf-8→unicodeへのエスケープ
+				/// \note utf-8→unicodeへのエスケープ
+				uint32_t unicode;
+				ssize_t r = utf8_str_to_unicode(&s[i], &unicode);
+				if(r < 0){
+					//utf8不正シーケンス。
+					encoded[0] = '#';
+					hexstr_from_bin_(&encoded[1], (uint8_t)s[i]);
+					esc_ = encoded; esc_len = 3;
+					break;
+				}
+				seq_len = r;
+				esc_len = encode_u_(encoded, unicode);
+				esc_ = encoded;
+				break;
 			}
+			//ただ読み込んだascii系の文字なら何もしないで１個進める。
 			i++;
 			continue;
 		}
-		/// \todo エスケープの時は「これまでの文字列」まとめて書く＆エスケープ後を書く
+		/// \note 「これまでの文字列」をまとめて書く＆エスケープ後を書く
 		//printf("%s(%d): write %zu - %zu of [%s]\n", __func__, s[i], start_idx, i, s);
+		//printf("%s(%d): write %zu - %zu of [%s](%zd, %zd)\n", __func__, s[i], start_idx, i, esc_, esc_len, seq_len);
 		if(write_raw_(self, acc_ret, &(s[start_idx]), i - start_idx) < 0){
 			return -1;
 		}
 		if(esc_ != NULL){
+			//エスケープしたほう。
 			if(write_raw_(self, acc_ret, esc_, esc_len) < 0){
 				return -1;
 			}
 		}
-		i++;
-		start_idx = i;
+		start_idx = i + seq_len;
+		i = (start_idx);
+		//printf("%s: start_idx: %d\n", __func__, start_idx);
 	}
 	if(write_raw_(self, acc_ret, &(s[start_idx]), i - start_idx) < 0){
 		return -1;
