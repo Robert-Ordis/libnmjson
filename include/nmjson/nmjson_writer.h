@@ -127,6 +127,77 @@ void	nmjson_writer_cfg_pretty_print(nmjson_writer_t *self, int flag);
  */
 void	nmjson_writer_cfg_utf8_raw(nmjson_writer_t *self, int flag);
 
+//-----------指定長のキー名書き込み------------
+/**
+ *	\brief		オブジェクト"{"か配列"["の開始を記述する。
+ *	\arg		self			: writeオブジェクト
+ *	\arg		key				: 追加するトークンの名前。配列下ならNULL。
+ *	\arg		container_type	: nmjson_type_objectかnmjson_type_arrayのどちらか。
+ *	\return	>= 0			: 成功。書き込んだ文字数
+ *	\return	 < 0			: 失敗
+ */
+ssize_t	nmjson_writer_begin_n_n(nmjson_writer_t *self, const nmjson_str_t *key, nmjson_type_t container_type);
+
+/**
+ *	\brief		null の書き出し
+ *	\arg		self			: writeオブジェクト
+ *	\arg		key				: 親がオブジェクトの場合のキー名。配列要素の場合は NULL。
+ *	\return	>= 0			: 成功。書き込んだ文字数
+ *	\return	 < 0			: 失敗
+ */
+ssize_t nmjson_writer_put_nullobj_n(nmjson_writer_t *self, const nmjson_str_t *key);
+
+/**
+ *	\brief		bool の書き出し
+ *	\arg		self			: writeオブジェクト
+ *	\arg		key				: 追加するトークンの名前。配列下ならNULL。
+ *	\arg		val				: _n(bool)0でfalse, それ以外でtrue
+ *	\return	>= 0			: 成功。書き込んだ文字数
+ *	\return	 < 0			: 失敗
+ */
+ssize_t nmjson_writer_put_bool_n(nmjson_writer_t *self, const nmjson_str_t *key, int val);
+
+/**
+ *	\brief		整数の書き出し
+ *	\arg		self			: writeオブジェクト
+ *	\arg		key				: 追加するトークンの名前。配列下ならNULL。
+ *	\arg		val				: 整数値
+ *	\return	>= 0			: 成功。書き込んだ文字数
+ *	\return	 < 0			: 失敗
+ */
+ssize_t nmjson_writer_put_int_n(nmjson_writer_t *self, const nmjson_str_t *key, int64_t val);
+
+/**
+ *	\brief		整数の書き出し
+ *	\arg		self			: writeオブジェクト
+ *	\arg		key				: 追加するトークンの名前。配列下ならNULL。
+ *	\arg		val				: 整数値
+ *	\return	>= 0			: 成功。書き込んだ文字数
+ *	\return	 < 0			: 失敗
+ */
+ssize_t nmjson_writer_put_uint_n(nmjson_writer_t *self, const nmjson_str_t *key, uint64_t val);
+
+/**
+ *	\brief		実数の書き出し（%g フォーマット）
+ *	\arg		self			: writeオブジェクト
+ *	\arg		key				: 追加するトークンの名前。配列下ならNULL。
+ *	\arg		val				: 浮動小数値
+ *	\return	>= 0			: 成功。書き込んだ文字数
+ *	\return	 < 0			: 失敗
+ */
+ssize_t nmjson_writer_put_float_n(nmjson_writer_t *self, const nmjson_str_t *key, double val);
+
+/**
+ *	\brief		文字列の書き出し（エスケープ処理込み）
+ *	\arg		self			: writeオブジェクト
+ *	\arg		key				: 追加するトークンの名前。配列下ならNULL。
+ *	\arg		val				: 文字列。NULL の場合は null として出力する
+ *	\return	>= 0			: 成功。書き込んだ文字数
+ *	\return	 < 0			: 失敗
+ */
+ssize_t nmjson_writer_put_string_n(nmjson_writer_t *self, const nmjson_str_t *key, const char *val);
+
+
 //-----------ここ以降書き込み系--------------
 /**
  *	\brief		オブジェクト"{"か配列"["の開始を記述する。
@@ -259,6 +330,44 @@ ssize_t nmjson_writer_put_string(nmjson_writer_t *self, const char *key, const c
 #define	nmjson_writer_with_array(self, key, ...)\
 	do{\
 		if(nmjson_writer_begin((self), (key), nmjson_type_array) < 0) { break; }\
+		do\
+			__VA_ARGS__\
+		while(0);\
+		nmjson_writer_end((self), nmjson_type_array);\
+	}while(0)
+
+/**
+ *	\brief		オブジェクトをちょっと便利に書くマクロ
+ *	\arg		self			: writeオブジェクト
+ *	\arg		key				: トークン名。配列下ならNULL。
+ *	\arg		...				: 中に記述する文。{...}の形式で必ず書く。
+ *	\warning	最後の引数は{...}形式で記述する。
+ *	\warning	内部では、トップレベルでbreakすることで中断する。
+ *	\warning	内部でfor/while/switchを行っている場合、breakはその中で適用されてしまいます
+ *	\warning	内部ではgoto/returnは使用しないでください
+ */
+#define	nmjson_writer_with_object_n(self, key, ...)\
+	do{\
+		if(nmjson_writer_begin_n((self), (key), nmjson_type_object) < 0) { break; }\
+		do\
+			__VA_ARGS__\
+		while(0);\
+		nmjson_writer_end((self), nmjson_type_object);\
+	}while(0)
+
+/**
+ *	\brief		配列をちょっと便利に書くマクロ
+ *	\arg		self			: writeオブジェクト
+ *	\arg		key				: トークン名。配列下ならNULL。
+ *	\arg		...				: 中に記述する文。{...}の形式で必ず書く。
+ *	\warning	最後の引数は{...}形式で記述する。
+ *	\warning	内部では、トップレベルでbreakすることで中断する。
+ *	\warning	内部でfor/while/switchを行っている場合、breakはその中で適用されてしまいます
+ *	\warning	内部ではgoto/returnは使用しないでください
+ */
+#define	nmjson_writer_with_array_n(self, key, ...)\
+	do{\
+		if(nmjson_writer_begin_n((self), (key), nmjson_type_array) < 0) { break; }\
 		do\
 			__VA_ARGS__\
 		while(0);\
