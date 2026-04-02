@@ -7,7 +7,8 @@ testProgram_SOURCES = \
 	02-cmd-stream.c \
 	03-kitchen-sink5.c \
 	04-kitchen-sink-rough.c \
-	10-writer.c 
+	10-writer.c \
+	20-roundtrip.c
 
 testProgram_LDADD = ../src/libnmjson.a
 
