@@ -525,17 +525,43 @@ ssize_t nmjson_writer_put_float_n(nmjson_writer_t *self, const nmjson_str_t *key
 	ssize_t val_ret = 0;
 	const char *err_at = NULL;
 	write_frame_token_(self, &ret, &err, &err_at, key, "float", {
-		/// \todo infinity/nanの場合の対応。json5の場合にraw, その他の場合strで書く。
-		char buf[32];
+		/// \note infinity/nanの場合の対応。json5の場合にraw, その他の場合strで書く。
 		ssize_t slen;
-		if((slen = snprintf(buf, 32, "%g", val)) < 0){
-			err = errno; err_at = "snprintf(float)";
-			break;
+		nmjson_str_t nstr;
+		if(isnan(val)){
+			nmjson_str_init(&nstr, nmjson_superset_has_extnum(self->cfg.superset) ?
+				"NaN":"\"NaN\""
+			);
+			if(write_raw_(self, &acc_ret, nstr.s, nstr.len) < 0){
+				err = errno; err_at = "write_raw_(nan)";
+			}
 		}
-		
-		if(write_raw_(self, &acc_ret, buf, slen) < 0){
-			err = errno; err_at = "write_raw_(float)";
-			break;
+		else if(isinf(val)){
+			if(val < 0.0){
+				nmjson_str_init(&nstr, nmjson_superset_has_extnum(self->cfg.superset) ?
+					"-Infinity":"\"-Infinity\""
+				);
+			}
+			else{
+				nmjson_str_init(&nstr, nmjson_superset_has_extnum(self->cfg.superset) ?
+					"Infinity":"\"Infinity\""
+				);
+			}
+			if(write_raw_(self, &acc_ret, nstr.s, nstr.len) < 0){
+				err = errno; err_at = "write_raw_(infinity)";
+			}
+		}
+		else{
+			char buf[32];
+			if((slen = snprintf(buf, 32, "%g", val)) < 0){
+				err = errno; err_at = "snprintf(float)";
+				break;
+			}
+			
+			if(write_raw_(self, &acc_ret, buf, slen) < 0){
+				err = errno; err_at = "write_raw_(float)";
+				break;
+			}
 		}
 	});
 	if(ret < 0){

@@ -33,6 +33,7 @@ void	nmjson_writer_init_fp(nmjson_writer_t *self, FILE *fp){
 }
 
 static ssize_t write_fd_(nmjson_writer_ctx_t *ctx_inst, const void *p, size_t l){
+	
 	return write(ctx_inst->i32.fd, p, l);
 }
 /**

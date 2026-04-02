@@ -25,6 +25,7 @@ void test10(){
 	nmjson_writer_init_fd(&writer, 1);
 	//nmjson_writer_init_fp(&writer, stdout);
 	nmjson_writer_cfg_pretty_print(&writer, 1);
+	nmjson_writer_cfg_superset(&writer, nmjson_superset_json5);
 	nmjson_writer_with_object(&writer, NULL, {
 		
 		nstr.s = "v_\0int"; nstr.len = 6;
@@ -41,6 +42,9 @@ void test10(){
 			for(i = 0; i < 32; i++){
 				nmjson_writer_put_float(&writer, NULL, (double)i);
 			}
+			nmjson_writer_put_float(&writer, NULL, NAN);
+			nmjson_writer_put_float(&writer, NULL, INFINITY);
+			nmjson_writer_put_float(&writer, NULL, -INFINITY);
 		});
 		nmjson_writer_with_array(&writer, "v_すｔr", {
 			char buf[64];
