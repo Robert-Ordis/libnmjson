@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -20,7 +21,18 @@ void	nmjson_writer_init_cb(nmjson_writer_t *self, void *user_data, nmjson_writer
 static ssize_t write_fp_(nmjson_writer_ctx_t *ctx_inst, const void *p, size_t l){
 	FILE *fp = ctx_inst->p;
 	size_t r = fwrite(p, 1, l, fp);
-	return (r == l) ? r : -1;
+	if(r == l){
+		return (ssize_t)r;
+	}
+
+	/*
+	 * fwrite(3) failure is primarily reported via ferror(fp).
+	 * Keep errno meaningful for the upper layer even when stdio does not.
+	 */
+	if(errno == 0){
+		errno = ferror(fp) ? EIO : EAGAIN;
+	}
+	return -1;
 }
 /**
  *	\brief		FILEポインターに向けて初期化
@@ -33,8 +45,29 @@ void	nmjson_writer_init_fp(nmjson_writer_t *self, FILE *fp){
 }
 
 static ssize_t write_fd_(nmjson_writer_ctx_t *ctx_inst, const void *p, size_t l){
-	
-	return write(ctx_inst->i32.fd, p, l);
+	ssize_t r;
+	size_t onset = 0;
+	const char *cursor = p;
+	while(onset < l){
+		r = write(ctx_inst->i32.fd, cursor + onset, l - onset);
+		if(r < 0){
+			int err = errno;
+			if(0
+				|| err == EINTR
+			){
+				continue;
+			}
+			else{
+				return -1;
+			}
+		}
+		else if(r == 0){
+			errno = EIO;
+			return -1;
+		}
+		onset += r;
+	}
+	return (ssize_t)onset;
 }
 /**
  *	\brief		ファイルディスクリプタに合わせた初期化
