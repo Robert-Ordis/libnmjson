@@ -528,7 +528,7 @@ ssize_t nmjson_writer_put_float_n(nmjson_writer_t *self, const nmjson_str_t *key
 		/// \todo infinity/nanの場合の対応。json5の場合にraw, その他の場合strで書く。
 		char buf[32];
 		ssize_t slen;
-		if((slen = snprintf(buf, 32, "%lf", val)) < 0){
+		if((slen = snprintf(buf, 32, "%g", val)) < 0){
 			err = errno; err_at = "snprintf(float)";
 			break;
 		}

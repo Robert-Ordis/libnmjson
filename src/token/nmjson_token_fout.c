@@ -204,7 +204,7 @@ ssize_t nmjson_token_fout3(const nmjson_token_t *self, FILE *fp, int easy_to_loo
 				}
 			}
 			else{
-				if(swriter_printf_(&swriter, "%f", token->v.value.d) < 0){
+				if(swriter_printf_(&swriter, "%g", token->v.value.d) < 0){
 					return -1;
 				}
 			}
