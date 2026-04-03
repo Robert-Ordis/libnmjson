@@ -26,9 +26,24 @@ typedef struct {
 	const char*		s;
 } nmjson_str_t;
 
+/**
+ *	\brief		文字列を入力する
+ *	\return	文字列長
+ */
 static inline int nmjson_str_init(nmjson_str_t *self, const char *s){
 	self->s = s;
 	self->len = (s != NULL) ? strlen(s) : 0;
+	return self->len;
+}
+
+/**
+ *	\brief		文字列「リテラル」で初期化する
+ *	\remarks	nmjson_str_t nstr = NMJSON_STR_LITERAL("test"); で記述。
+ *	\warning	C99以降専用らしい。
+ */
+#define	NMJSON_STR_LITERAL(lit) (nmjson_str_t) {\
+	.len = sizeof(lit) - 1,\
+	.s = lit \
 }
 
 #ifdef	__cplusplus

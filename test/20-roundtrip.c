@@ -18,12 +18,10 @@
 #define TOKENS_NUM 512
 #define CBUF_NUM 4096
 
-#define NMJSON_STR_LIT(s) { sizeof(s) - 1, (s) }
-
-static const nmjson_str_t k_key_unicode_head = NMJSON_STR_LIT("🙂key中tail");
-static const nmjson_str_t k_key_unicode_mid = NMJSON_STR_LIT("headΩ🙂終端");
-static const nmjson_str_t k_key_ctrl_mix = NMJSON_STR_LIT("\nkey中\t🙂tail\r");
-static const nmjson_str_t k_key_ctrl_edges = NMJSON_STR_LIT("\b先頭mix終端🙃\x01");
+static const nmjson_str_t k_key_unicode_head = NMJSON_STR_LITERAL("🙂key中tail");
+static const nmjson_str_t k_key_unicode_mid = NMJSON_STR_LITERAL("headΩ🙂終端");
+static const nmjson_str_t k_key_ctrl_mix = NMJSON_STR_LITERAL("\nkey中\t🙂tail\r");
+static const nmjson_str_t k_key_ctrl_edges = NMJSON_STR_LITERAL("\b先頭mix終端🙃\x01");
 
 struct expected_s {
     int64_t iv;
@@ -115,6 +113,7 @@ static int dispatcher_validate(const nmjson_token_t *token_root, nmjson_error_t 
     }
 	printf("json has been read as below:\n");
     nmjson_token_fout2(token_root, stdout, 1, 1);
+	nmjson_token_fout2(token_root, stdout, 0, 0);
     int64_t got_iv = nmjson_object_get_int(token_root, "iv", -1);
     if(got_iv != expected.iv){
         fprintf(stderr, "iv mismatch: got=%" PRId64 " expected=%" PRId64 "\n", got_iv, expected.iv);
