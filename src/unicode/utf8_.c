@@ -88,6 +88,66 @@ ssize_t	utf8_copy_decode_surrogate(char *dst, const char *src, uint32_t hi_code)
 	return 4;
 }
 
+static int is_valid_code_(uint32_t code, size_t read_len){
+		// 過長エンコーディング検査
+	if(0
+		|| (read_len == 2 && code < 0x80)
+		|| (read_len == 3 && code < 0x800)
+		|| (read_len == 4 && code < 0x10000)
+	){
+		return 0; // overlong
+	}
+
+	// サロゲート/範囲チェック
+	if(0xD800 <= code && code <= 0xDFFF){
+		//サロゲート系のコードは"普通のutf-8"では扱わない。
+		return 0;
+	}
+	if(code > 0x10FFFF) {
+		//2026年現在のunicode範囲外
+		return 0;
+	}
+	return 1;
+}
+
+ssize_t utf8_strn_to_unicode(const char *src, size_t src_len, uint32_t *p_unicode){
+	if(src_len == 0) return -1; // 不完全
+
+	uint8_t b0 = (uint8_t)src[0];
+	size_t need = 0;
+	uint32_t code = 0;
+	size_t i;
+	if(b0 < 0x80){
+		*p_unicode = b0;
+		return 1;
+	}
+	else if((b0 & 0xE0) == 0xC0){ need = 2; code = b0 & 0x1F; }
+	else if((b0 & 0xF0) == 0xE0){ need = 3; code = b0 & 0x0F; }
+	else if((b0 & 0xF8) == 0xF0){ need = 4; code = b0 & 0x07; }
+	else{
+		return -1; // 不正な先頭バイト（5/6 バイトは拒否）
+	}
+
+	if(need > src_len) {
+		return -1;
+	}
+	
+	for(i = 1; i < need; ++i){
+		uint8_t bc = (uint8_t)src[i];
+		if((bc & 0xC0) != 0x80) {
+			return -1; // 不正な継続バイト
+		}
+		code = (code << 6) | (bc & 0x3F);
+	}
+
+	if(!is_valid_code_(code, need)){
+		return -1;
+	}
+
+	*p_unicode = code;
+	return (ssize_t)need;
+}
+
 ssize_t	utf8_str_to_unicode(const char *src, uint32_t *p_unicode){
 	uint8_t head = (uint8_t)src[0];
 	int i, len;
@@ -129,11 +189,21 @@ ssize_t	utf8_str_to_unicode(const char *src, uint32_t *p_unicode){
 	
 	*p_unicode = head & head_masks[len];
 	for(i = 1; i < len; i++){
-		if(src[i] == '\0'){
+		uint8_t bc = (uint8_t)src[i];
+		/// \note 外でsrc[i] == '\0'だった時の判断材料を提供
+		if(bc == '\0'){
 			return (ssize_t) i;
 		}
-		*p_unicode = (*p_unicode << 6) + (src[i] & head_masks[1]);
+		if((bc & 0xC0) != 0x80){
+			return -1; // 不正な継続バイト
+		}
+		*p_unicode = (*p_unicode << 6) + (bc & head_masks[1]);
+	}
+	
+	if(!is_valid_code_(*p_unicode, len)){
+		return -1;
 	}
 	
 	return (ssize_t) len;
 }
+

@@ -13,6 +13,8 @@ ssize_t	utf8_copy_decode(char *dst, const char *src, size_t src_len, uint32_t *p
 
 ssize_t	utf8_copy_decode_surrogate(char *dst, const char *src, uint32_t hi_code);
 
+ssize_t utf8_strn_to_unicode(const char *src, size_t src_len, uint32_t *p_unicode);
+
 ssize_t	utf8_str_to_unicode(const char *src, uint32_t *p_unicode);
 
 #ifdef __cplusplus
