@@ -295,14 +295,14 @@ ssize_t nmjson_writer_put_string(nmjson_writer_t *self, const char *key, const c
 /**
  *	\brief		1行コメントを押し込む
  *	\arg		self			: writeオブジェクト
- *	\arg		line_mode		: 「どの行に書き込むか」の指定
  *	\arg		comment			: コメント。
+ *	\arg		line_mode		: 「どの行に書き込むか」の指定。インライン or ニューライン
  *	\return	>= 0			: 成功。書き込んだ文字数。無効の時は0。
  *	\return	 < 0			: 失敗
  *	\remarks	(pretty_print == 1 && (superset == nmjson_superset_jsonc || superset == nmjson_superset_json5))の時のみ有効
  *	\todo		未実装
  */
-ssize_t	nmjson_writer_put_comment(nmjson_writer_t *self, nmjson_writer_comment_t mode, const char *val);
+ssize_t	nmjson_writer_put_comment(nmjson_writer_t *self, const char *comment, nmjson_writer_comment_t line_mode);
 
 
 //-----------おまけ。Cの文法から外れていいなら------------
