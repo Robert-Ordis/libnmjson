@@ -29,7 +29,7 @@ ssize_t	utf8_copy_decode(char *dst, const char *src, size_t src_len, uint32_t *p
 		dst[1] = (char)(0x80 + unicode					% 64);
 		ret = 2;
 	}
-	else if(unicode < 0x0000FFFF){
+	else if(unicode < 0x00010000){
 		if(0xD800 <= unicode && unicode < 0xDC00){
 			//サロゲートペア
 			if(p_hi_code != NULL){
