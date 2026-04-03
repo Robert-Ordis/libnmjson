@@ -95,7 +95,7 @@ static ssize_t write_esc_(nmjson_writer_t *self, ssize_t *acc_ret, const char *s
 			if(!(self->cfg.utf8_raw) && (s[i] & 0xE0) >= 0xC0){
 				/// \note utf-8→unicodeへのエスケープ
 				uint32_t unicode;
-				ssize_t r = utf8_str_to_unicode(&s[i], &unicode);
+				ssize_t r = utf8_strn_to_unicode(&s[i], slen - i, &unicode);
 				if(r < 0){
 					//utf8不正シーケンス。
 					encoded[0] = '#';
