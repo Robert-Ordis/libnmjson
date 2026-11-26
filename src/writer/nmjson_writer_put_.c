@@ -18,8 +18,12 @@ static inline void put_err_(nmjson_writer_t *self, int err, const char *err_at){
 
 static inline ssize_t write_raw_(nmjson_writer_t *self, ssize_t *acc_ret, const char *s, size_t l){
 	ssize_t one_ret;
+	if(l == 0){
+		return 0;
+	}
 	if((one_ret = self->ctx.write_(&(self->ctx.inst_), s, l)) >= 0){
 		*acc_ret += one_ret;
+		self->state.written_any = 1;
 	}
 	return one_ret;
 }
@@ -187,6 +191,7 @@ static inline ssize_t write_indent_(nmjson_writer_t *self, ssize_t *acc_ret){
 
 static ssize_t write_before_token_(nmjson_writer_t *self, ssize_t *acc_ret){
 	ssize_t one_ret;
+	self->state.line_has_comment = 0;
 	if(write_comma_(self, acc_ret) < 0){
 		return -1;
 	}
@@ -311,6 +316,7 @@ ssize_t	nmjson_writer_end(nmjson_writer_t *self, nmjson_type_t container_type){
 			s = "]";
 		}
 		self->state.depth --;
+		self->state.line_has_comment = 0;
 		if(write_newline_(self, &acc_ret) < 0){
 			err = errno; err_at = "write_newline_(end container)";
 			break;
@@ -659,4 +665,111 @@ ssize_t nmjson_writer_put_nstring(nmjson_writer_t *self, const char *key, const 
 	return nmjson_writer_put_nstring_n(self, &nstr, val);
 }
 
+//-----------コメント----------------
 
+/**
+ *	\brief		textの先頭から「1行分」の長さと、次の行の開始位置を求める
+ *	\return	1行分の長さ。*pnextは次の行の先頭(改行が無ければNULL)
+ *	\remarks	改行: \n, \r\n, \r, U+2028(E2 80 A8), U+2029(E2 80 A9)
+ *				U+2028/2029はJSON5(ECMAScript)では行終端になるため、// の中に残すとコメントが途切れる
+ */
+static size_t comment_line_(const char *text, const char **pnext){
+	const char *p = text;
+	*pnext = NULL;
+	while(*p != '\0'){
+		if(*p == '\n'){
+			*pnext = p + 1;
+			break;
+		}
+		if(*p == '\r'){
+			*pnext = (p[1] == '\n') ? p + 2 : p + 1;
+			break;
+		}
+		if((uint8_t)p[0] == 0xE2 && (uint8_t)p[1] == 0x80 && ((uint8_t)p[2] == 0xA8 || (uint8_t)p[2] == 0xA9)){
+			*pnext = p + 3;
+			break;
+		}
+		p ++;
+	}
+	return (size_t)(p - text);
+}
+
+/**
+ *	\brief		行コメントを書き込む
+ */
+ssize_t	nmjson_writer_put_comment(nmjson_writer_t *self, const char *comment, nmjson_writer_comment_t line_mode){
+	ssize_t ret = -1;
+	int err = 0;
+	const char *err_at = NULL;
+	do{
+		ssize_t acc_ret = 0;
+		const char *line = comment;
+		int is_inline;
+
+		if(comment == NULL){
+			err = EINVAL; err_at = "put_comment(comment is NULL)";
+			break;
+		}
+		if(!(self->cfg.pretty_print && self->cfg.superset.comment && self->cfg.superset.tailcomma)){
+			//無効: 何も書かない
+			ret = 0;
+			break;
+		}
+
+		// インラインにできるのは「現在行が何らかのトークンで終わっていて、まだコメントが無い」時のみ
+		is_inline = (line_mode == nmjson_writer_comment_inline)
+			&& self->state.written_any
+			&& !self->state.line_has_comment;
+
+		// 直前の要素に続くカンマを先に出す（後から出すとコメントに飲み込まれるため）
+		// トップレベル(depth == 0)ではカンマは不要
+		if(self->state.need_comma && self->state.depth > 0){
+			if(write_raw_(self, &acc_ret, ",", 1) < 0){
+				err = errno; err_at = "write_raw_(comment: comma)";
+				break;
+			}
+			self->state.need_comma = 0;
+		}
+
+		while(line != NULL){
+			const char *next;
+			size_t len = comment_line_(line, &next);
+			if(is_inline){
+				if(write_raw_(self, &acc_ret, " ", 1) < 0){
+					err = errno; err_at = "write_raw_(comment: space)";
+					break;
+				}
+				is_inline = 0;	//2行目以降はニューライン
+			}
+			else{
+				if(self->state.written_any && write_raw_(self, &acc_ret, "\n", 1) < 0){
+					err = errno; err_at = "write_raw_(comment: newline)";
+					break;
+				}
+				if(write_indent_(self, &acc_ret) < 0){
+					err = errno; err_at = "write_indent_(comment)";
+					break;
+				}
+			}
+			if(write_raw_(self, &acc_ret, (len > 0) ? "// " : "//", (len > 0) ? 3 : 2) < 0){
+				err = errno; err_at = "write_raw_(comment: //)";
+				break;
+			}
+			if(write_raw_(self, &acc_ret, line, len) < 0){
+				err = errno; err_at = "write_raw_(comment: text)";
+				break;
+			}
+			// 末尾の改行は空行コメントにしない
+			line = (next != NULL && *next != '\0') ? next : NULL;
+		}
+		if(err != 0){
+			break;
+		}
+		self->state.line_has_comment = 1;
+		ret = acc_ret;
+	}while(0);
+	if(ret < 0){
+		put_err_(self, err, err_at);
+	}
+	return ret;
+}

@@ -76,6 +76,10 @@ typedef struct nmjson_writer_s {
 	struct {
 		int							need_comma;
 		int							depth;
+		/// \brief	何か1文字でも書いたか(先頭の改行を抑止するため)
+		int							written_any;
+		/// \brief	現在行がコメントで終わっているか(インラインコメントの連続をニューライン扱いにするため)
+		int							line_has_comment;
 	} state;
 	
 	struct {
@@ -295,14 +299,23 @@ ssize_t nmjson_writer_put_float(nmjson_writer_t *self, const char *key, double v
 ssize_t nmjson_writer_put_string(nmjson_writer_t *self, const char *key, const char *val);
 
 /**
- *	\brief		1行コメントを押し込む
+ *	\brief		行コメント(// ...)を書き込む
  *	\arg		self			: writeオブジェクト
- *	\arg		comment			: コメント。
+ *	\arg		comment			: コメント。改行(\n, \r\n, \r, U+2028, U+2029)を含む場合は行ごとに // を付けて複数行で出力する
  *	\arg		line_mode		: 「どの行に書き込むか」の指定。インライン or ニューライン
- *	\return	>= 0			: 成功。書き込んだ文字数。無効の時は0。
- *	\return	 < 0			: 失敗
- *	\remarks	(pretty_print == 1 && (superset == nmjson_superset_jsonc || superset == nmjson_superset_json5))の時のみ有効
- *	\todo		未実装
+ *	\return	>= 0			: 成功。書き込んだ文字数。無効の時は0(何も書かない)。
+ *	\return	 < 0			: 失敗。comment == NULL の場合は EINVAL
+ *	\remarks	下記を全て満たす時のみ有効:
+ *				pretty_print == 1 && superset.comment && superset.tailcomma
+ *				(nmjson_superset_jsonc / nmjson_superset_json5 は条件を満たす)
+ *	\remarks	直前の要素に続くカンマは、コメントより前に出力される。
+ *				そのためコメントの直後にコンテナを閉じると末尾カンマが残る（tailcommaを条件にしている理由）。
+ *	\remarks	出力例:
+ *	{
+ *	  // newline: 次の要素についての説明
+ *	  "a": 1, // inline: 直前の要素についての説明
+ *	  "b": 2
+ *	}
  */
 ssize_t	nmjson_writer_put_comment(nmjson_writer_t *self, const char *comment, nmjson_writer_comment_t line_mode);
 
