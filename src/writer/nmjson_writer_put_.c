@@ -6,6 +6,8 @@
 #include "include/nmjson/nmjson_writer.h"
 #include "include/nmjson/utf8.h"
 
+#include "../local_header/numfmt.h"
+
 static inline void put_err_(nmjson_writer_t *self, int err, const char *err_at){
 	self->err.num = err;
 	if(err_at){
@@ -433,12 +435,8 @@ ssize_t nmjson_writer_put_int_n(nmjson_writer_t *self, const nmjson_str_t *key, 
 	ssize_t val_ret = 0;
 	const char *err_at = NULL;
 	write_frame_token_(self, &ret, &err, &err_at, key, "int", {
-		char buf[32];
-		ssize_t slen;
-		if((slen = snprintf(buf, 32, "%"PRId64"", val)) < 0){
-			err = errno; err_at = "snprintf(int)";
-			break;
-		}
+		char buf[NUMFMT_I64_DEC_MAX_];
+		size_t slen = numfmt_i64_to_dec_(buf, val);
 		
 		if(write_raw_(self, &acc_ret, buf, slen) < 0){
 			err = errno; err_at = "write_raw_(int)";
@@ -479,12 +477,8 @@ ssize_t nmjson_writer_put_uint_n(nmjson_writer_t *self, const nmjson_str_t *key,
 	ssize_t val_ret = 0;
 	const char *err_at = NULL;
 	write_frame_token_(self, &ret, &err, &err_at, key, "uint", {
-		char buf[32];
-		ssize_t slen;
-		if((slen = snprintf(buf, 32, "%"PRIu64"", val)) < 0){
-			err = errno; err_at = "snprintf(uint)";
-			break;
-		}
+		char buf[NUMFMT_I64_DEC_MAX_];
+		size_t slen = numfmt_u64_to_dec_(buf, val);
 		
 		if(write_raw_(self, &acc_ret, buf, slen) < 0){
 			err = errno; err_at = "write_raw_(uint)";

@@ -6,6 +6,7 @@
 
 #include "../local_header/linear_linker.h"
 #include "../local_header/swriter.h"
+#include "../local_header/numfmt.h"
 
 static ssize_t sout_indent_(swriter_t *pwriter, unsigned int indent){
 	char c = '\n';
@@ -179,8 +180,12 @@ ssize_t nmjson_token_fout3(const nmjson_token_t *self, FILE *fp, int easy_to_loo
 			break;
 			
 		case nmjson_type_integer:
-			if(swriter_printf_(&swriter, "%"PRId64"", token->v.value.i) < 0){
-				return -1;
+			{
+				char nbuf[NUMFMT_I64_DEC_MAX_];
+				size_t nlen = numfmt_i64_to_dec_(nbuf, token->v.value.i);
+				if(swriter_write_(&swriter, nbuf, 1, nlen) < 0){
+					return -1;
+				}
 			}
 			break;
 			

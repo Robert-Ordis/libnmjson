@@ -9,6 +9,8 @@ libnmjson_a_SOURCES = \
 	parser/nmjson_parser_dbg_print.c \
 	parser/nmjson_parser_parse.c \
 	local_header/linear_linker.h \
+	local_header/numfmt.h \
+	local_header/swriter.h \
 	private_funcs/token_input_e5ident_.h \
 	private_funcs/token_input_literal_.h \
 	private_funcs/token_parse_.h \
