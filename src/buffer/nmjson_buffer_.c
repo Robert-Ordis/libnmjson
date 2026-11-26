@@ -15,7 +15,9 @@
 
 static void buffer_flush_(nmjson_buffer_t *self){
 	self->index = 0;
-	self->cmdbuf[0] = '\0';
+	if(self->cmdbuf_len > 0){
+		self->cmdbuf[0] = '\0';
+	}
 	nmjson_parser_reset_as_superset(&(self->parser), self->private.superset);
 }
 
@@ -33,7 +35,59 @@ static void buffer_dequeue_(nmjson_buffer_t *self, size_t parsed_len){
 }
 
 static inline int buffer_loadable_(nmjson_buffer_t *self){
-	return self->index < (self->cmdbuf_len - 1);
+	//cmdbuf_lenが2未満(コールバックの契約違反など)だと cmdbuf_len - 1 が下に溢れるため先に弾く
+	return self->cmdbuf_len >= 2 && (size_t)self->index < (self->cmdbuf_len - 1);
+}
+
+/**
+ *	\brief		コールバックでバッファを入れ替える
+ *	\return		 1: 入れ替えた
+ *	\return		 0: 入れ替えなかった(コールバック未設定 or NULLが返った)
+ *	\return		-1: コールバックが条件を満たさないバッファを返した。採用した上で中身を破棄した
+ */
+static int buffer_resize_(nmjson_buffer_t *self, nmjson_buffer_resize_t reason){
+	uintptr_t old_base;
+	size_t used_len;
+	size_t new_len = 0;
+	char *new_buf;
+
+	if(self->private.resize_cb == NULL){
+		return 0;
+	}
+	used_len = (size_t)self->index;
+	// コールバック内で旧バッファが解放されても良いよう、先に数値で控える
+	old_base = (uintptr_t)self->cmdbuf;
+	new_buf = self->private.resize_cb(reason, self->cmdbuf, self->cmdbuf_len, used_len, &new_len, self->private.resize_arg);
+	if(new_buf == NULL){
+		return 0;
+	}
+
+	self->cmdbuf = new_buf;
+	if(new_len < used_len + 2 || (reason == nmjson_buffer_resize_grow && new_len <= self->cmdbuf_len)){
+		// 旧バッファは既に手放されている可能性があるため戻せない。採用して中身を捨てる
+		self->cmdbuf_len = new_len;
+		buffer_flush_(self);
+		return -1;
+	}
+	self->cmdbuf_len = new_len;
+	self->cmdbuf[used_len] = '\0';
+	nmjson_parser_rebase(&(self->parser), old_base, used_len, self->cmdbuf);
+	return 1;
+}
+
+/// \brief	満杯時: growを試みる。続きを読めるようになったら1
+static int buffer_try_grow_(nmjson_buffer_t *self){
+	return buffer_resize_(self, nmjson_buffer_resize_grow) > 0 && buffer_loadable_(self);
+}
+
+/// \brief	JSONを処理し終えた後: shrinkの機会を与える
+static void buffer_after_consume_(nmjson_buffer_t *self){
+	buffer_resize_(self, nmjson_buffer_resize_shrink);
+}
+
+void	nmjson_buffer_set_resize_cb(nmjson_buffer_t *self, nmjson_buffer_resize_cb cb, void *arg){
+	self->private.resize_cb = cb;
+	self->private.resize_arg = arg;
 }
 
 static ssize_t buffer_load_(nmjson_buffer_t *self, int fd){
@@ -80,8 +134,8 @@ static int nmjson_buffer_dispatch_(nmjson_buffer_t *self, nmjson_buffer_dispatch
 	self->private.last_result = self->parser.error.code;
 	switch(self->private.last_result){
 	case nmjson_error_incomplete:	//JSONの読み込み途中で終わった
-		if(buffer_loadable_(self)){
-			//まだ受信バッファが存在する→続けて読む必要があるので、イベント発火はしない
+		if(buffer_loadable_(self) || buffer_try_grow_(self)){
+			//まだ受信バッファが存在する(または拡張できた)→続けて読む必要があるので、イベント発火はしない
 			return 0;
 		}
 		//受信バッファがもうない→//そのことを通知して強制終了
@@ -91,6 +145,7 @@ static int nmjson_buffer_dispatch_(nmjson_buffer_t *self, nmjson_buffer_dispatch
 	case nmjson_error_tokens:	//JSONトークンが足りない
 		dispatch(self->parser.token.root, self->private.last_result, fd, arg);
 		buffer_flush_(self);
+		buffer_after_consume_(self);
 		return 1;
 	
 	default:
@@ -101,6 +156,7 @@ static int nmjson_buffer_dispatch_(nmjson_buffer_t *self, nmjson_buffer_dispatch
 	ret = dispatch(self->parser.token.root, self->private.last_result, fd, arg);
 	
 	buffer_dequeue_(self, parsed_len);
+	buffer_after_consume_(self);
 	
 	return ret;
 	
@@ -117,8 +173,8 @@ static int nmjson_buffer_proc_cmd_(nmjson_buffer_t *self, nmjson_cmd_elem_t cmds
 	
 	switch(self->private.last_result){
 	case nmjson_error_incomplete:	//JSONの読み込み途中で終わった
-		if(buffer_loadable_(self)){
-			//まだ受信バッファが存在する→続けて読む必要があるので、イベント発火はしない
+		if(buffer_loadable_(self) || buffer_try_grow_(self)){
+			//まだ受信バッファが存在する(または拡張できた)→続けて読む必要があるので、イベント発火はしない
 			return 0;
 		}
 		//受信バッファがもうない→//そのことを通知して強制終了
@@ -152,16 +208,19 @@ static int nmjson_buffer_proc_cmd_(nmjson_buffer_t *self, nmjson_cmd_elem_t cmds
 	if(self->private.last_result == nmjson_error_complete){
 		//成功時。単純にデキューを試みる。
 		buffer_dequeue_(self, parsed_len);
+		buffer_after_consume_(self);
 	}
 	else{
 		//ダメなときは戻り値を考慮しない。
 		switch(self->private.last_result){
 		case nmjson_error_syntax:
 			buffer_dequeue_(self, parsed_len);
+			buffer_after_consume_(self);
 			break;
 		case nmjson_error_buffer:
 		case nmjson_error_tokens:
 			buffer_flush_(self);
+			buffer_after_consume_(self);
 			break;
 		default:
 			break;

@@ -45,3 +45,30 @@ void				nmjson_parser_reset_as_superset(nmjson_parser_t *self, nmjson_superset_t
 const nmjson_token_t*	nmjson_parser_get_root(nmjson_parser_t *self){
 	return self->token.root;
 }
+
+size_t				nmjson_parser_rebase(nmjson_parser_t *self, uintptr_t old_base, size_t used_len, char *new_base){
+	// 旧バッファの[先頭, 終端'\0']を指していれば付け替える。数値として比較するので旧領域は参照しない。
+	#define	IN_OLD_(p)	((uintptr_t)(p) >= old_base && (uintptr_t)(p) <= old_base + used_len)
+	#define	TO_NEW_(p)	(new_base + ((uintptr_t)(p) - old_base))
+	size_t count = 0;
+	nmjson_token_t *t;
+
+	if(self->cursor != NULL && IN_OLD_(self->cursor)){
+		self->cursor = TO_NEW_(self->cursor);
+		count ++;
+	}
+	for(t = self->active_head; t != NULL; t = LINEAR_LINKER_NEXT_(t, nmjson_token_t, alloc_link)){
+		if(t->n.name != NULL && !t->n.is_alloced && IN_OLD_(t->n.name)){
+			t->n.name = TO_NEW_(t->n.name);
+			count ++;
+		}
+		// v.valueは共用体なので、文字列の時だけ見る
+		if(t->v.type == nmjson_type_string && t->v.value.s != NULL && !t->v.is_alloced && IN_OLD_(t->v.value.s)){
+			t->v.value.s = TO_NEW_(t->v.value.s);
+			count ++;
+		}
+	}
+	return count;
+	#undef	IN_OLD_
+	#undef	TO_NEW_
+}

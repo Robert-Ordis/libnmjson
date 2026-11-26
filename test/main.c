@@ -17,6 +17,7 @@ void test21();
 void test22();
 void test23();
 void test24();
+void test25();
 
 int main(int argc, char *argv[]){
 	test00();
@@ -31,5 +32,6 @@ int main(int argc, char *argv[]){
 	test22();
 	test23();
 	test24();
+	test25();
 	return 0;
 }
