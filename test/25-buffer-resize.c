@@ -213,6 +213,8 @@ typedef struct {
 	size_t	step;
 	int		grows;
 	int		shrinks;
+	int		releases;
+	char	*released;	// release で渡されたバッファ
 	int		violate;	// 1: 契約違反のバッファを返す
 } lend_ctx_t;
 
@@ -220,6 +222,12 @@ static char *lend_cb_(nmjson_buffer_resize_t reason, char *cur, size_t cur_len, 
 	lend_ctx_t *ctx = arg;
 	char *next;
 	size_t next_len;
+	if(reason == nmjson_buffer_resize_release){
+		//貸し出し版: プールは静的領域なので返却するだけ(記録のみ)
+		ctx->releases ++;
+		ctx->released = cur;
+		return NULL;
+	}
 	if(reason == nmjson_buffer_resize_grow){
 		next = (cur == ctx->pool[0]) ? ctx->pool[1] : ctx->pool[0];
 		next_len = cur_len + ctx->step;
@@ -271,6 +279,16 @@ static void test_lend_(const char *stream, size_t len, int use_cmd){
 			nmjson_buffer_init_superset(&b, tokens, TOKENS_NUM, initial, init_len, nmjson_superset_jsonc);
 			nmjson_buffer_set_resize_cb(&b, lend_cb_, &lend);
 			run_stream_(&b, stream, len, &ctx, use_cmd);
+			{
+				//deinit: 現在のバッファが1回だけ release で渡されること。2回目は何もしないこと
+				char *cur = b.cmdbuf;
+				nmjson_buffer_deinit(&b);
+				nmjson_buffer_deinit(&b);
+				if(lend.releases != 1 || lend.released != cur || b.cmdbuf != NULL){
+					fprintf(stderr, "test25: FAIL: [%s] deinit release=%d\n", label, lend.releases);
+					exit(1);
+				}
+			}
 			if(ctx.ng != 0 || ctx.received != MSG_NUM){
 				fprintf(stderr, "test25: FAIL: [%s] received %zu/%zu, ng=%d, errors(syntax=%d,tokens=%d,buffer=%d)\n",
 					label, ctx.received, MSG_NUM, ctx.ng,
@@ -298,12 +316,19 @@ typedef struct {
 	size_t	max_len;
 	int		grows;
 	int		shrinks;
+	int		releases;
 } realloc_ctx_t;
 
 static char *realloc_cb_(nmjson_buffer_resize_t reason, char *cur, size_t cur_len, size_t used_len, size_t *pnew_len, void *arg){
 	realloc_ctx_t *ctx = arg;
 	size_t next_len;
 	char *next;
+	if(reason == nmjson_buffer_resize_release){
+		//malloc版: 初期バッファもmallocしているので、どのバッファでもfreeしてよい
+		ctx->releases ++;
+		free(cur);
+		return NULL;
+	}
 	if(reason == nmjson_buffer_resize_grow){
 		next_len = cur_len * 2;
 		if(next_len > ctx->max_len){ next_len = ctx->max_len; }
@@ -339,7 +364,11 @@ static void test_realloc_(const char *stream, size_t len){
 		nmjson_buffer_init_superset(&b, tokens, TOKENS_NUM, buf, init_len, nmjson_superset_jsonc);
 		nmjson_buffer_set_resize_cb(&b, realloc_cb_, &rc);
 		run_stream_(&b, stream, len, &ctx, 0);
-		free(b.cmdbuf);
+		nmjson_buffer_deinit(&b);	// release で free される(valgrindでリークが無いこと)
+		if(rc.releases != 1){
+			fprintf(stderr, "test25: FAIL: [realloc init=%zu] release=%d\n", init_len, rc.releases);
+			exit(1);
+		}
 		if(ctx.ng != 0 || ctx.received != MSG_NUM){
 			fprintf(stderr, "test25: FAIL: [realloc init=%zu] received %zu/%zu ng=%d\n", init_len, ctx.received, MSG_NUM, ctx.ng);
 			exit(1);

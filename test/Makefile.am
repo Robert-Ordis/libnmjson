@@ -15,7 +15,8 @@ testProgram_SOURCES = \
 	24-writer-comment.c \
 	25-buffer-resize.c \
 	26-e5ident.c \
-	27-space.c
+	27-space.c \
+	28-token-pool.c
 
 testProgram_LDADD = ../src/libnmjson.a
 

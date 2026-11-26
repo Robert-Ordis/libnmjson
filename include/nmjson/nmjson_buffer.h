@@ -47,6 +47,9 @@ typedef enum nmjson_buffer_resize_e {
 	nmjson_buffer_resize_grow,
 	/// \brief	JSONを1個処理し終えた(または破棄した)。小さいバッファへ戻す機会。
 	nmjson_buffer_resize_shrink,
+	/// \brief	nmjson_buffer_deinit から呼ばれる。cur_buf を手放す(free/プールへ返却等)。戻り値は無視される。
+	///			初期化時に渡したバッファ(利用者の持ち物)が渡ってくる場合もあるので、区別して扱うこと。
+	nmjson_buffer_resize_release,
 } nmjson_buffer_resize_t;
 
 /**
@@ -65,6 +68,8 @@ typedef enum nmjson_buffer_resize_e {
  *			growでは *pnew_len > cur_len であること。満たさない場合はバッファを採用した上で中身を破棄し、エラーとする。
  *	\remarks	cur_buf をそのまま返し、長さだけ変えてもよい(realloc が同じ場所で伸びた場合など)。
  *	\remarks	shrink は処理済みのJSONを捨てた直後に毎回呼ばれる。入れ替え不要ならNULLを返すこと。
+ *	\warning	reason は grow / shrink / release の3値。if(grow){...}else{...} のように2値を前提に書くと、
+ *				release を shrink として処理してしまうため、release は必ず個別に扱うこと。
  *	\warning	入れ替え後、dispatchコールバックで受け取ったトークンから得た文字列ポインタを保持していた場合、それは無効になる。
  */
 typedef char *(*nmjson_buffer_resize_cb)(
@@ -138,6 +143,16 @@ int		nmjson_buffer_init_superset(
  *				貸し借りするコールバックを渡す想定。上限サイズはコールバック側で決める。
  */
 void	nmjson_buffer_set_resize_cb(nmjson_buffer_t *self, nmjson_buffer_resize_cb cb, void *arg);
+
+/**
+ *	\brief	バッファが持つ資源を解放する
+ *	\arg	self		: nmjson_buffer_tのインスタンス
+ *	\remarks	内部のパーサーを nmjson_parser_deinit し、入れ替えコールバックが設定されていれば
+ *				nmjson_buffer_resize_release で現在の受信バッファを渡す(後始末はコールバックの責務)。
+ *				init 時に渡したトークン配列・受信バッファは利用者の持ち物であり、ライブラリは解放しない。
+ *	\remarks	以後、再度 init するまで使用不可。2回呼んでも安全。
+ */
+void	nmjson_buffer_deinit(nmjson_buffer_t *self);
 
 /**
  *	\brief	fdからJSONを読みこみ、解析した結果を扱う

@@ -85,6 +85,19 @@ static void buffer_after_consume_(nmjson_buffer_t *self){
 	buffer_resize_(self, nmjson_buffer_resize_shrink);
 }
 
+void	nmjson_buffer_deinit(nmjson_buffer_t *self){
+	nmjson_parser_deinit(&(self->parser));
+	if(self->private.resize_cb != NULL && self->cmdbuf != NULL){
+		size_t dummy_len = 0;
+		self->private.resize_cb(nmjson_buffer_resize_release, self->cmdbuf, self->cmdbuf_len,
+			(size_t)self->index, &dummy_len, self->private.resize_arg);
+	}
+	//以後は読み込めない状態にする(buffer_loadable_ は cmdbuf_len < 2 で偽)
+	self->cmdbuf = NULL;
+	self->cmdbuf_len = 0;
+	self->index = 0;
+}
+
 void	nmjson_buffer_set_resize_cb(nmjson_buffer_t *self, nmjson_buffer_resize_cb cb, void *arg){
 	self->private.resize_cb = cb;
 	self->private.resize_arg = arg;

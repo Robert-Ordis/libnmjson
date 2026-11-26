@@ -238,8 +238,8 @@ ssize_t nmjson_token_fout3(const nmjson_token_t *self, FILE *fp, int easy_to_loo
 		if(token == self){
 			break;
 		}
-		else if(token->sibling_link.next){
-			token = token->sibling_link.next;
+		else if(token->link.next){
+			token = token->link.next;
 			if(swriter_putc_(&swriter, ',') < 0){ return -1; }
 		}
 		else{

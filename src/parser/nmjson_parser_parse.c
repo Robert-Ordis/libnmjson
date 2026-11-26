@@ -88,50 +88,51 @@ static void dbg_print_stat_(nmjson_parser_t *self){
 static nmjson_token_t* new_token_(nmjson_parser_t *self){
 	nmjson_token_t *ret = NULL;
 	//フリーリストからまずはとる。
-	LINEAR_LINKER_POP_(&(self->free_head), &ret, nmjson_token_t, alloc_link);
+	LINEAR_LINKER_POP_(&(self->free_head), &ret, nmjson_token_t, link);
 	if(ret == NULL){
 		if(self->is_alloc_allowed){
 			//malloc許可の場合。
-			ret = (nmjson_token_t *)malloc(sizeof(nmjson_token_t));
-			ret->is_alloced = 1;
+			if((ret = (nmjson_token_t *)malloc(sizeof(nmjson_token_t))) == NULL){
+				return NULL;
+			}
+			ret->alloced.self = 1;
 		}
 	}
-	else{
-		ret->is_alloced = 0;
-	}
+	//未使用リストから取った場合、alloced.selfはそのまま(malloc出身のトークンも再利用されるため)
 	
 	if(ret){
-		LINEAR_LINKER_INSERT_AFTER_(&(self->active_head), ret, NULL, nmjson_token_t, alloc_link);
+		//使用中のトークンは木(またはparser.token.value)から辿れるため、使用中リストは持たない
 		memset(&(ret->n), 0, sizeof(ret->n));
 		memset(&(ret->v), 0, sizeof(ret->v));
-		memset(&(ret->sibling_link), 0, sizeof(ret->sibling_link));
+		memset(&(ret->link), 0, sizeof(ret->link));
 		ret->parent = NULL;
+		ret->alloced.name = 0;
+		ret->alloced.value = 0;
 	}
 	return ret;
 }
 
+/// \brief	木に未接続のトークン(parser.token.value)を手放す
 static void del_token_(nmjson_parser_t *self, nmjson_token_t *token){
-	//アクティブから取り上げ。
-	LINEAR_LINKER_DEL_(&(self->active_head), token, nmjson_token_t, alloc_link);
-	if(token->v.type == nmjson_type_string && token->v.is_alloced){
+	if(token->v.type == nmjson_type_string && token->alloced.value){
 		if(token->v.value.s){
 			free(token->v.value.s);
 		}
 		token->v.value.s = NULL;
 	}
 	
-	if(token->n.is_alloced){
+	if(token->alloced.name){
 		if(token->n.name){
 			free(token->n.name);
 		}
 		token->n.name = NULL;
 	}
 	
-	if(token->is_alloced){
+	if(token->alloced.self){
 		free(token);
 	}
 	else{
-		LINEAR_LINKER_INSERT_AFTER_(&(self->free_head), token, NULL, nmjson_token_t, alloc_link);
+		LINEAR_LINKER_INSERT_AFTER_(&(self->free_head), token, NULL, nmjson_token_t, link);
 	}
 }
 
@@ -149,7 +150,7 @@ static int json_token_add_(nmjson_token_t *vessel, nmjson_token_t *value){
 	//加える。
 	value->parent = vessel;
 	vessel->v.len ++;
-	LINEAR_LINKER_ADD_(&(vessel->v.value.o), value, nmjson_token_t, sibling_link);
+	LINEAR_LINKER_ADD_(&(vessel->v.value.o), value, nmjson_token_t, link);
 	return 0;
 }
 
@@ -254,7 +255,14 @@ size_t				nmjson_parser_parse(nmjson_parser_t *self, char *src){
 			//値の型を確定→器に入れる
 			self->token.value->v.len = 0;			//値トークンがまだ一つもない。
 			self->token.value->v.type = (*(self->cursor) == '[') ? nmjson_type_array : nmjson_type_object;
-			json_token_add_(self->token.vessel, self->token.value);
+			if(json_token_add_(self->token.vessel, self->token.value) < 0){
+				//接続できなかったトークンは木から辿れないため、ここで手放す
+				del_token_(self, self->token.value);
+				self->token.value = NULL;
+				parser_put_err_(self, nmjson_error_syntax, "Invalid[cannot add container]", 1);
+				break_loop = 1;
+				continue;
+			}
 			
 			//ネストを一つ下げる。
 			self->token.vessel = self->token.value;
@@ -321,8 +329,14 @@ size_t				nmjson_parser_parse(nmjson_parser_t *self, char *src){
 			
 			if(self->is_treating_value){
 				//値モードで入力→トークンの全てが確定: 晴れて器に加わる。
-				json_token_add_(self->token.vessel, self->token.value);
 				dbg_printf_("value %s\n", self->token.value->v.value.s);
+				if(json_token_add_(self->token.vessel, self->token.value) < 0){
+					del_token_(self, self->token.value);
+					self->token.value = NULL;
+					parser_put_err_(self, nmjson_error_syntax, "Invalid[cannot add string]", 1);
+					break_loop = 1;
+					continue;
+				}
 				self->token.value = NULL;
 			}
 			else{
@@ -410,7 +424,7 @@ size_t				nmjson_parser_parse(nmjson_parser_t *self, char *src){
 			}
 			
 			if(self->token.vessel->v.type == nmjson_type_object){
-				LINEAR_LINKER_SORT_(&(self->token.vessel->v.value.o), token_compare_name_, nmjson_token_t, sibling_link);
+				LINEAR_LINKER_SORT_(&(self->token.vessel->v.value.o), token_compare_name_, nmjson_token_t, link);
 			}
 			
 			//器が終わったのでネストを１個上げる。
@@ -558,7 +572,7 @@ size_t				nmjson_parser_parse(nmjson_parser_t *self, char *src){
 				continue;
 			}
 			self->cursor += increment;
-			dbg_printf_("name from ident->%zu[%s]\n", self->token.value->n.len, self->token.value->n.name);
+			dbg_printf_("name from ident->%zu[%s]\n", (size_t)self->token.value->n.len, self->token.value->n.name);
 			//入力モード終わり。
 			self->is_in_input = 0;
 		}
@@ -607,7 +621,13 @@ size_t				nmjson_parser_parse(nmjson_parser_t *self, char *src){
 			}
 			
 			//終わったので値トークンを格納し、文字を進める。
-			json_token_add_(self->token.vessel, self->token.value);
+			if(json_token_add_(self->token.vessel, self->token.value) < 0){
+				del_token_(self, self->token.value);
+				self->token.value = NULL;
+				parser_put_err_(self, nmjson_error_syntax, "Invalid[cannot add value]", 1);
+				break_loop = 1;
+				continue;
+			}
 			self->token.value = NULL;
 			self->cursor += increment;
 			self->is_in_input = 0;

@@ -28,7 +28,6 @@ struct nmjson_parser_s {
 	nmjson_superset_t	superset;
 	
 	struct nmjson_token_s	*free_head;
-	struct nmjson_token_s	*active_head;
 	
 	struct {
 		struct nmjson_token_s	*root;
@@ -46,6 +45,16 @@ typedef struct nmjson_parser_s nmjson_parser_t;
 
 nmjson_parser_t*	nmjson_parser_init(nmjson_parser_t *self, nmjson_token_t *tokens, int tokens_len);
 void				nmjson_parser_reset(nmjson_parser_t *self);
+
+/**
+ *	\brief		パーサーが確保した資源(malloc出身のトークン等)を解放する
+ *	\arg		self		: パーサー
+ *	\remarks	init と対で呼ぶこと。以後、再度 init するまで解析には使えない(トークン不足になる)。
+ *	\remarks	トークン配列を渡して初期化した場合(mallocなし)は、配列には触れず実質何もしない。
+ *				mallocの有無に関わらず常に呼んでおけば、後からmalloc版へ切り替えても利用側を直さずに済む。
+ *	\remarks	2回呼んでも安全。
+ */
+void				nmjson_parser_deinit(nmjson_parser_t *self);
 void				nmjson_parser_reset_as_superset(nmjson_parser_t *self, nmjson_superset_t superset);
 size_t				nmjson_parser_parse(nmjson_parser_t *self, char *src);
 ssize_t				nmjson_parser_dbg_print(nmjson_parser_t *self, int (*print_func)(const char *fmt, ...));

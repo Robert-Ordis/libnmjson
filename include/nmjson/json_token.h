@@ -46,14 +46,19 @@ struct nmjson_token_link_s {
  */
 struct nmjson_token_s {
 	
-	///\note parser/maker内でのalloc管理
-	struct nmjson_token_link_s	alloc_link;
+	/// \note	リンク。使用中は同一親トークン内の兄弟リスト、未使用時はパーサーの未使用リストに使う。
+	///			(使用中のトークンは木から辿れるため、使用中リストは持たない)
+	struct nmjson_token_link_s	link;
+	
+	/// \note 親トークンへのリンク
+	struct nmjson_token_s		*parent;
 	
 	/// \note オブジェクトのキーネーム管理
 	struct {
+		/// \brief	キー名。クォート付きのキーは'\0'終端されるが、識別子キー(JSON5)は終端されないため len で扱うこと
 		char*			name;
-		size_t			len;
-		int				is_alloced;
+		/// \brief	キー名の長さ[bytes]
+		uint32_t		len;
 	} n;
 	
 	/// \note 値管理。
@@ -63,21 +68,20 @@ struct nmjson_token_s {
 		nmjson_value_t	value;
 		
 		/// \brief	文字列の場合は文字列長。オブジェクト系なら子の数。
-		size_t			len;
+		uint32_t		len;
 		
-		/// \brief	文字列の場合にその文字列がヒープメモリ出身かどうか。
-		int				is_alloced;
 		nmjson_type_t	type;
 	} v;
 	
-	/// \note 親トークンへのリンク
-	struct nmjson_token_s		*parent;
-	
-	/// \note 同一親トークン内の兄弟リンク。
-	struct nmjson_token_link_s	sibling_link;
-	
-	/// \note	このトークン自身がalloc出身かどうか。
-	int					is_alloced;
+	/// \note	ヒープメモリ出身かどうか(malloc版用)
+	struct {
+		/// \brief	このトークン自身
+		unsigned int	self	: 1;
+		/// \brief	キー名の文字列
+		unsigned int	name	: 1;
+		/// \brief	値の文字列
+		unsigned int	value	: 1;
+	} alloced;
 	
 };
 
@@ -236,7 +240,7 @@ static inline const nmjson_token_t* nmjson_token_head_child(const nmjson_token_t
 
 /// \brief	（配列下で使用）同じ配列下の次トークンを取る。
 static inline const nmjson_token_t* nmjson_token_next(const nmjson_token_t *token){
-	return token->sibling_link.next;
+	return token->link.next;
 }
 
 /// \brief	（主に配列で使用？）インデックスを指定して子トークンを取る。マイナスの場合は末尾からの指定。

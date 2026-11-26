@@ -17,6 +17,7 @@ libnmjson_a_SOURCES = \
 	local_header/linear_linker.h \
 	local_header/numfmt.h \
 	local_header/swriter.h \
+	local_header/token_tree.h \
 	numfmt/nmjson_numfmt_f64_.c \
 	numfmt/nmjson_numfmt_strtod_.c \
 	third_party/ryu/common.h \

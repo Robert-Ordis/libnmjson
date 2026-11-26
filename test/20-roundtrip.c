@@ -154,7 +154,7 @@ static int dispatcher_validate(const nmjson_token_t *token_root, nmjson_error_t 
         exit(1);
     }
     if((int)arr->v.len != 3){
-        fprintf(stderr, "arr length mismatch: %zu\n", arr->v.len);
+        fprintf(stderr, "arr length mismatch: %zu\n", (size_t)arr->v.len);
         exit(1);
     }
     for(int i = 0; i < 3; i++){
@@ -170,7 +170,7 @@ static int dispatcher_validate(const nmjson_token_t *token_root, nmjson_error_t 
         exit(1);
     }
     if((int)arr_str->v.len != (int)(sizeof(k_array_expected) / sizeof(k_array_expected[0]))){
-        fprintf(stderr, "arr_str length mismatch: %zu\n", arr_str->v.len);
+        fprintf(stderr, "arr_str length mismatch: %zu\n", (size_t)arr_str->v.len);
         exit(1);
     }
     for(int i = 0; i < (int)(sizeof(k_array_expected) / sizeof(k_array_expected[0])); i++){
