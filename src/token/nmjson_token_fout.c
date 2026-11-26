@@ -209,7 +209,9 @@ ssize_t nmjson_token_fout3(const nmjson_token_t *self, FILE *fp, int easy_to_loo
 				}
 			}
 			else{
-				if(swriter_printf_(&swriter, "%g", token->v.value.d) < 0){
+				char nbuf[NUMFMT_F64_MAX_];
+				size_t nlen = nmjson_numfmt_f64_(nbuf, token->v.value.d);
+				if(swriter_write_(&swriter, nbuf, 1, nlen) < 0){
 					return -1;
 				}
 			}

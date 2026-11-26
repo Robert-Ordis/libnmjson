@@ -506,7 +506,7 @@ ssize_t nmjson_writer_put_uint(nmjson_writer_t *self, const char *key, uint64_t 
 }
 
 /**
- *	\brief		実数の書き出し（%g フォーマット）
+ *	\brief		実数の書き出し（最短round-trip表現）
  *	\arg		self			: writeオブジェクト
  *	\arg		key				: 追加するトークンの名前。配列下ならNULL。
  *	\arg		val				: 浮動小数値
@@ -546,11 +546,8 @@ ssize_t nmjson_writer_put_float_n(nmjson_writer_t *self, const nmjson_str_t *key
 			}
 		}
 		else{
-			char buf[32];
-			if((slen = snprintf(buf, 32, "%g", val)) < 0){
-				err = errno; err_at = "snprintf(float)";
-				break;
-			}
+			char buf[NUMFMT_F64_MAX_];
+			slen = (ssize_t)nmjson_numfmt_f64_(buf, val);
 			
 			if(write_raw_(self, &acc_ret, buf, slen) < 0){
 				err = errno; err_at = "write_raw_(float)";
@@ -565,7 +562,7 @@ ssize_t nmjson_writer_put_float_n(nmjson_writer_t *self, const nmjson_str_t *key
 }
 
 /**
- *	\brief		実数の書き出し（%g フォーマット）
+ *	\brief		実数の書き出し（最短round-trip表現）
  *	\arg		self			: writeオブジェクト
  *	\arg		key				: 追加するトークンの名前。配列下ならNULL。
  *	\arg		val				: 浮動小数値

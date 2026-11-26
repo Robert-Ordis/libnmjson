@@ -47,4 +47,15 @@ static inline size_t numfmt_i64_to_dec_(char *buf, int64_t v){
 	return numfmt_u64_to_dec_(buf, (uint64_t)v);
 }
 
+/// \brief	double のJSON表現に必要な最大バイト数(最長は "-0.00000" + 17桁 = 25文字。余裕を持たせる)
+#define	NUMFMT_F64_MAX_	32
+
+/**
+ *	\brief		double を JSON 数値文字列にする（Ryuによる最短表現。実装は numfmt/nmjson_numfmt_f64_.c）
+ *	\arg		buf		: 出力先。NUMFMT_F64_MAX_バイト以上。'\0'終端はしない
+ *	\arg		val		: 値。有限値であること
+ *	\return		書き込んだ文字数。NaN/Infinityの場合は0
+ */
+size_t nmjson_numfmt_f64_(char *buf, double val);
+
 #endif	/* !LOCAL_NUMFMT_H_ */
