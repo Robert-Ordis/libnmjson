@@ -87,6 +87,15 @@ ssize_t nmjson_token_fout(const nmjson_token_t *self, FILE *fp);
 ssize_t	nmjson_token_fout2(const nmjson_token_t *self, FILE *fp, int easy_to_look, int raw_utf);
 ssize_t	nmjson_token_fout3(const nmjson_token_t *self, FILE *fp, int easy_to_look, int raw_utf, nmjson_superset_t superset);
 
+/**
+ *	\brief		ロケール(LC_NUMERIC)に依存しない strtod
+ *	\arg		s		: 変換元
+ *	\arg		endptr	: strtod(3)と同様。変換できなかった場合は s が入る
+ *	\return		変換結果。範囲外の場合は strtod(3) と同様に errno = ERANGE
+ *	\remarks	小数点は常に '.' として解釈する。setlocale(3)の状態に左右されない。
+ */
+double	nmjson_strtod(const char *s, char **endptr);
+
 /// \brief	トークンの値をある程度強引に合わせつつ整数値として読む。
 static inline int64_t nmjson_token_as_int(const nmjson_token_t *token, int64_t def){
 	
@@ -160,7 +169,7 @@ static inline double nmjson_token_as_float(const nmjson_token_t *token, double d
 	case nmjson_type_string:
 		{
 			char *endptr = NULL;
-			double ret = strtod(token->v.value.s, &endptr);
+			double ret = nmjson_strtod(token->v.value.s, &endptr);
 			return (*endptr != '\0' && !isspace((uint8_t)*endptr)) ? def:ret;
 		}
 	

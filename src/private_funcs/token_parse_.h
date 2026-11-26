@@ -200,13 +200,13 @@ static ssize_t token_parse_number_(nmjson_token_t *self, char *src, nmjson_super
 	
 	switch(self->v.type){
 	case nmjson_type_float:
-		self->v.value.d = strtod(src, &endptr);
+		self->v.value.d = nmjson_strtod(src, &endptr);
 		break;
 	case nmjson_type_integer:
 		errno = 0;
 		self->v.value.i = is_minus ? strtoll(src, &endptr, base) : (int64_t) strtoull(src, &endptr, base);
 		if(errno == ERANGE){
-			self->v.value.d = strtod(src, &endptr);
+			self->v.value.d = nmjson_strtod(src, &endptr);
 			self->v.type = nmjson_type_float;
 		}
 		break;

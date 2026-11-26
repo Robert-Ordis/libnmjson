@@ -3,9 +3,10 @@
  *	\brief	数値の書き出し→読み戻しの検証
  *
  *	- 整数: writer出力がprintfと完全一致すること、parser→token_fout→parserで値が保存されること（失敗で exit(1)）
- *	- 浮動小数: 出力文字列(ECMAScript準拠)・最短性・ビット一致round-trip・writerのロケール非依存（失敗で exit(1)）
- *	  parser側のロケール依存(strtod)は既知の問題として KNOWN ISSUE 報告のみ。
- *	  環境変数 NMJSON_TEST_STRICT_FLOAT=1 で失敗扱いにする（parser修正後に有効化する想定）。
+ *	- 浮動小数: 出力文字列(ECMAScript準拠)・最短性・ビット一致round-trip（失敗で exit(1)）
+ *	- ロケール: 小数点がカンマのロケールで writer/parser の結果が変わらないこと（失敗で exit(1)）
+ *	  libnmjsonを NMJSON_STRTOD_NO_USELOCALE でビルドした場合は、環境変数 NMJSON_TEST_STRTOD_FALLBACK=1 を指定する
+ *	  （長い数値の変換失敗を「仕様どおり」として扱う）
  */
 #include <inttypes.h>
 #include <locale.h>
@@ -225,8 +226,8 @@ static const struct { double v; const char *s; } k_dbl_text[] = {
 	{ 4.9406564584124654e-324,   "5e-324" },
 };
 
-static int strict_float_(void){
-	const char *e = getenv("NMJSON_TEST_STRICT_FLOAT");
+static int env_is_1_(const char *name){
+	const char *e = getenv(name);
 	return e != NULL && strcmp(e, "1") == 0;
 }
 
@@ -387,23 +388,46 @@ static void test_float_roundtrip_(void){
 	printf("test21: float roundtrip (writer/fout) OK\n");
 }
 
+/// \brief	"[...]"をパースしてrootを返す。パース失敗ならNULL
+static const nmjson_token_t *try_parse_(nmjson_parser_t *parser, nmjson_token_t *tokens, int tokens_num, char *src){
+	nmjson_parser_init(parser, tokens, tokens_num);
+	nmjson_parser_reset(parser);
+	nmjson_parser_parse(parser, src);
+	return (parser->error.code == nmjson_error_complete) ? nmjson_parser_get_root(parser) : NULL;
+}
+
 /// \brief	小数点がカンマのロケールでも結果が変わらないか
 static void test_float_locale_(void){
 	static const char *k_locales[] = { "de_DE.UTF-8", "de_DE.utf8", "fr_FR.UTF-8", "fr_FR.utf8", NULL };
 	static membuf_t mb_c;
 	static membuf_t mb_l;
+	static membuf_t one;
+	static char src[MBUF_NUM];
+	nmjson_parser_t parser;
+	nmjson_token_t tokens[8];
+	const nmjson_token_t *root;
 	const char *used = NULL;
 	char *saved;
 	size_t i;
-	int parse_ng = 0;
+	double big_expected;
+	double long_expected;
+	uint64_t seed = 0x2545F4914F6CDD1DULL;
 
-	// まずCロケールでの出力を取っておく
+	// まずCロケールでの出力・期待値を取っておく
 	membuf_reset_(&mb_c);
 	for(i = 0; i < ARRAY_LEN_(k_dbl_text); i++){
-		static membuf_t one;
 		write_float_(&one, k_dbl_text[i].v);
 		membuf_write_(&(nmjson_writer_ctx_t){ .p = &mb_c }, one.buf, one.len);
 		membuf_write_(&(nmjson_writer_ctx_t){ .p = &mb_c }, " ", 1);
+	}
+	big_expected = strtod("99999999999999999999", NULL);
+	// 長い数値: 0.1000...0001 (有効桁300桁)
+	{
+		size_t n = 0;
+		src[n++] = '['; src[n++] = '0'; src[n++] = '.'; src[n++] = '1';
+		for(i = 0; i < 298; i++){ src[n++] = '0'; }
+		src[n++] = '1'; src[n++] = ']'; src[n] = '\0';
+		long_expected = strtod(&src[1], NULL);
 	}
 
 	saved = setlocale(LC_NUMERIC, NULL);
@@ -419,51 +443,81 @@ static void test_float_locale_(void){
 		free(saved);
 		return;
 	}
+	if(strcmp(localeconv()->decimal_point, ",") != 0){
+		printf("test21: SKIP: float locale (%s has no comma decimal point)\n", used);
+		setlocale(LC_NUMERIC, saved != NULL ? saved : "C");
+		free(saved);
+		return;
+	}
+	printf("test21: float locale check with LC_NUMERIC=%s\n", used);
 
-	// writer: ロケールに依存しないこと（失敗で exit）
+	// writer: ロケールに依存しないこと
 	membuf_reset_(&mb_l);
 	for(i = 0; i < ARRAY_LEN_(k_dbl_text); i++){
-		static membuf_t one;
 		write_float_(&one, k_dbl_text[i].v);
 		membuf_write_(&(nmjson_writer_ctx_t){ .p = &mb_l }, one.buf, one.len);
 		membuf_write_(&(nmjson_writer_ctx_t){ .p = &mb_l }, " ", 1);
 	}
-
-	// parser: strtod依存のため現状は既知の問題
-	for(i = 0; i < ARRAY_LEN_(k_dbl_text); i++){
-		static char src[64];
-		nmjson_parser_t parser;
-		nmjson_token_t tokens[4];
-		double got;
-		snprintf(src, sizeof(src), "[%s]", k_dbl_text[i].s);
-		nmjson_parser_init(&parser, tokens, 4);
-		nmjson_parser_reset(&parser);
-		nmjson_parser_parse(&parser, src);
-		if(parser.error.code != nmjson_error_complete){ parse_ng++; continue; }
-		got = nmjson_token_as_float(nmjson_token_nth_child(nmjson_parser_get_root(&parser), 0), NAN);
-		if(memcmp(&got, &k_dbl_text[i].v, sizeof(double)) != 0){ parse_ng++; }
-	}
-
-	setlocale(LC_NUMERIC, saved != NULL ? saved : "C");
-	free(saved);
-
 	if(strcmp(mb_c.buf, mb_l.buf) != 0){
 		fprintf(stderr, "test21: C    : %s\ntest21: %s: %s\n", mb_c.buf, used, mb_l.buf);
 		fail_("writer output depends on locale", used);
 	}
-	printf("test21: float writer under LC_NUMERIC=%s OK\n", used);
 
-	if(parse_ng == 0){
-		printf("test21: float parser under LC_NUMERIC=%s OK\n", used);
+	// parser: 既知の値
+	for(i = 0; i < ARRAY_LEN_(k_dbl_text); i++){
+		double got;
+		snprintf(src, sizeof(src), "[%s]", k_dbl_text[i].s);
+		if((root = try_parse_(&parser, tokens, 8, src)) == NULL){ fail_("parse under locale", k_dbl_text[i].s); }
+		got = nmjson_token_as_float(nmjson_token_nth_child(root, 0), NAN);
+		if(memcmp(&got, &k_dbl_text[i].v, sizeof(double)) != 0){ fail_("parse value under locale", k_dbl_text[i].s); }
 	}
-	else if(strict_float_()){
-		fprintf(stderr, "test21: FAIL: float parser under LC_NUMERIC=%s: %d mismatch(es)\n", used, parse_ng);
-		exit(1);
+
+	// parser: ランダム値の round-trip
+	for(i = 0; i < 2000; i++){
+		uint64_t bits = xorshift64_(&seed);
+		double v, got;
+		memcpy(&v, &bits, sizeof(v));
+		if(!isfinite(v)){ continue; }
+		write_float_(&one, v);
+		snprintf(src, sizeof(src), "[%.32s]", one.buf);
+		if((root = try_parse_(&parser, tokens, 8, src)) == NULL){ fail_("parse random under locale", one.buf); }
+		got = nmjson_token_as_float(nmjson_token_nth_child(root, 0), NAN);
+		if(memcmp(&got, &v, sizeof(double)) != 0){ fail_("random roundtrip under locale", one.buf); }
 	}
-	else{
-		printf("test21: KNOWN ISSUE: float parser under LC_NUMERIC=%s: %d/%zu mismatch(es) (strtod depends on locale; set NMJSON_TEST_STRICT_FLOAT=1 to fail)\n",
-			used, parse_ng, ARRAY_LEN_(k_dbl_text));
+
+	// parser: 整数範囲外→浮動小数への切り替えで、後続の区切り","を小数点として食わないこと
+	snprintf(src, sizeof(src), "[99999999999999999999,5]");
+	if((root = try_parse_(&parser, tokens, 8, src)) == NULL){ fail_("parse big int under locale", NULL); }
+	if(root->v.len != 2){ fail_("big int ate the separator", NULL); }
+	{
+		double got = nmjson_token_as_float(nmjson_token_nth_child(root, 0), NAN);
+		if(got != big_expected){ fail_("big int value under locale", NULL); }
+		if(nmjson_token_as_int(nmjson_token_nth_child(root, 1), -1) != 5){ fail_("big int next value under locale", NULL); }
 	}
+
+	// 文字列値を nmjson_token_as_float で読む場合
+	snprintf(src, sizeof(src), "[\"2.5\"]");
+	if((root = try_parse_(&parser, tokens, 8, src)) == NULL){ fail_("parse string under locale", NULL); }
+	if(nmjson_token_as_float(nmjson_token_nth_child(root, 0), NAN) != 2.5){ fail_("token_as_float(string) under locale", NULL); }
+
+	// 長い数値
+	{
+		size_t n = 0;
+		src[n++] = '['; src[n++] = '0'; src[n++] = '.'; src[n++] = '1';
+		for(i = 0; i < 298; i++){ src[n++] = '0'; }
+		src[n++] = '1'; src[n++] = ']'; src[n] = '\0';
+	}
+	root = try_parse_(&parser, tokens, 8, src);
+	if(root == NULL && env_is_1_("NMJSON_TEST_STRTOD_FALLBACK")){
+		printf("test21: long number under locale: rejected (fallback build limitation, expected)\n");
+	}
+	else if(root == NULL || nmjson_token_as_float(nmjson_token_nth_child(root, 0), NAN) != long_expected){
+		fail_("long number under locale", NULL);
+	}
+
+	setlocale(LC_NUMERIC, saved != NULL ? saved : "C");
+	free(saved);
+	printf("test21: float writer/parser under LC_NUMERIC=%s OK\n", used);
 }
 
 void test21(){

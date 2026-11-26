@@ -18,6 +18,7 @@ libnmjson_a_SOURCES = \
 	local_header/numfmt.h \
 	local_header/swriter.h \
 	numfmt/nmjson_numfmt_f64_.c \
+	numfmt/nmjson_numfmt_strtod_.c \
 	third_party/ryu/common.h \
 	third_party/ryu/d2s_intrinsics.h \
 	third_party/ryu/d2s_small_table.h \
