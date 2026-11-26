@@ -35,7 +35,7 @@ libnmjson_a_SOURCES = \
 
 libnmjson_a_CFLAGS = $(AM_CFLAGS) \
 	-DVER_MAJOR=0 \
-	-DVER_MINOR=9 \
+	-DVER_MINOR=10 \
 	-DVER_PATCH=0 \
 	-DVER_TAILS= \
 	-DPROJECT_NAME=\"libnmjson\" \
