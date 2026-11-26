@@ -539,7 +539,7 @@ size_t				nmjson_parser_parse(nmjson_parser_t *self, char *src){
 				continue;
 			}
 			
-			if(token_input_e5ident_(self->token.value, self->cursor, self->superset) < 0){
+			if(token_input_e5ident_(self->token.value, self->cursor, (size_t)increment, self->superset) < 0){
 				//文句なしの構文エラー
 				break_loop = 1;
 				parser_put_err_(self, nmjson_error_syntax, "Invalid[as decoding ident(ecma5)]", 1);

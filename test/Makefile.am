@@ -13,7 +13,8 @@ testProgram_SOURCES = \
 	22-token-as-int.c \
 	23-superset.c \
 	24-writer-comment.c \
-	25-buffer-resize.c
+	25-buffer-resize.c \
+	26-e5ident.c
 
 testProgram_LDADD = ../src/libnmjson.a
 
