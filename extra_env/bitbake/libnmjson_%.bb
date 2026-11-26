@@ -1,7 +1,7 @@
 SECTION = "libnmjson"
 DESCRIPTION = "NON-Malloc Json library"
 LICENSE = "MIT"
-LIC_FILES_CHKSUM = "file://LICENSE;md5=47b81e2867c22a1c9dfa96df051da4ea"
+LIC_FILES_CHKSUM = "file://LICENSE;md5=209cea95ebdbd9d49ef52f59a81ea806"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PV}:"
 
