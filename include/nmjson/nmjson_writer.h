@@ -118,11 +118,13 @@ void	nmjson_writer_init_fd(nmjson_writer_t *self, int fd);
 
 //-----------設定系----------------
 /**
- *	\brief		json5用の出力を許可する場合にこれを使用する。
+ *	\brief		JSON拡張の出力を許可する場合にこれを使用する。
  *	\arg		self		: writerオブジェクト
- *	\arg		superset	: 大体json5かnormalの二択。
- *	\remarks	デフォルトはnmjson_superset_normal
- *	\remarks	json5ならNaN, Infinity/-Infinity, \xXX出力を許可する。
+ *	\arg		superset	: 出力を許可する機能。nmjson_superset_json5 等のプリセットか、フィールドを個別に設定したもの。
+ *	\remarks	デフォルトはnmjson_superset_none
+ *	\remarks	writerが参照する機能:
+ *				- extnum	: NaN, Infinity/-Infinity を素の値で出力する（無効時は文字列"NaN"等で出力）
+ *	\remarks	それ以外の機能は現状無視される。
  */
 void	nmjson_writer_cfg_superset(nmjson_writer_t *self, nmjson_superset_t superset);
 

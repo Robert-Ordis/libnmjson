@@ -102,7 +102,9 @@ static ssize_t token_parse_number_(nmjson_token_t *self, char *src, nmjson_super
 	}
 	if(tmp_digit <= 0){	//切られているでもないのに数字が一つも読めない
 		//JSON5ではまだもうちょっと戦わねばならない。
-		if(nmjson_superset_has_extnum(superset) || nmjson_superset_has_abbrdecimal(superset)){
+		//	'.'始まり → 整数部の省略(abbrdecimal)
+		//	それ以外  → Infinity / NaN (extnum)
+		if(*cursor == '.' ? nmjson_superset_has_abbrdecimal(superset) : nmjson_superset_has_extnum(superset)){
 			if(*cursor != '.'){
 				//Infinity, -Infinity, NaNのいずれかの可能性を探る。
 				const char *keyword;

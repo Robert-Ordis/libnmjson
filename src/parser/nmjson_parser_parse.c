@@ -84,38 +84,6 @@ static void dbg_print_stat_(nmjson_parser_t *self){
 #include "../private_funcs/token_input_literal_.h"
 #include "../private_funcs/token_input_e5ident_.h"
 
-static int is_comment_enabled_(nmjson_parser_t *self){
-	switch(self->superset){
-	case nmjson_superset_jsonc:
-	case nmjson_superset_json5:
-		return 1;
-	default:
-		break;
-	}
-	return 0;
-}
-
-static int is_tail_comma_enabled_(nmjson_parser_t *self){
-	switch(self->superset){
-	case nmjson_superset_jsonc:
-	case nmjson_superset_json5:
-		return 1;
-	default:
-		break;
-	}
-	return 0;
-}
-
-static int is_ecma5_(nmjson_parser_t *self){
-	switch(self->superset){
-	case nmjson_superset_json5:
-		return 1;
-	default:
-		break;
-	}
-	return 0;
-}
-
 static nmjson_token_t* new_token_(nmjson_parser_t *self){
 	nmjson_token_t *ret = NULL;
 	//フリーリストからまずはとる。
@@ -289,7 +257,7 @@ size_t				nmjson_parser_parse(nmjson_parser_t *self, char *src){
 		
 		//文字列の開始
 		case '\'':
-			if(!is_ecma5_(self)){
+			if(!nmjson_superset_has_literalsq(self->superset)){
 				//JSON5で許可されたものなので、それ以外はＮＧ。
 				parser_put_err_(self, nmjson_error_syntax, "Compat:[\"'\" is allowed on ECMA5]", 1);
 				break_loop = 1;
@@ -407,7 +375,7 @@ size_t				nmjson_parser_parse(nmjson_parser_t *self, char *src){
 				
 				if(self->is_in_input && self->token.vessel->v.len > 0){
 					//末尾にカンマがあったのに器が閉じられた: JSONC/JSON5では問題なし！
-					break_loop = !is_tail_comma_enabled_(self);
+					break_loop = !nmjson_superset_has_tailcomma(self->superset);
 					if(break_loop){
 						parser_put_err_(self, nmjson_error_syntax, "Not state[closing after comma]", 1);
 					}
@@ -451,7 +419,7 @@ size_t				nmjson_parser_parse(nmjson_parser_t *self, char *src){
 			
 		//コメント
 		case '/':
-			if(!is_comment_enabled_(self)){
+			if(!nmjson_superset_has_comment(self->superset)){
 				break_loop = 1;
 				parser_put_err_(self, nmjson_error_syntax, "Compat[Comment is not allowed plain json]", 1);
 				continue;
@@ -484,9 +452,16 @@ size_t				nmjson_parser_parse(nmjson_parser_t *self, char *src){
 			input_type = nmjson_type_null;
 			break;
 			
-		case '+': case 'I': case 'N': case '.':
-			//JSON5のみ: 明示的な正の値(+), 無限大(Infinity), 無効値(NaN), 小数部のみ(.nnnnn)
-			input_type = is_ecma5_(self) ? nmjson_type_number_ : nmjson_type_unused_;
+		case '+': case 'I': case 'N':
+			//JSON5のみ(extnum): 明示的な正の値(+), 無限大(Infinity), 無効値(NaN)
+			//ただし識別子キー(identkey)の先頭である可能性もあるため、その場合は後段で名前として扱う
+			input_type = nmjson_superset_has_extnum(self->superset) ? nmjson_type_number_ :
+				nmjson_superset_has_identkey(self->superset) ? nmjson_type_rawstr_ : nmjson_type_unused_;
+			break;
+			
+		case '.':
+			//JSON5のみ(abbrdecimal): 小数部のみ(.nnnnn)
+			input_type = nmjson_superset_has_abbrdecimal(self->superset) ? nmjson_type_number_ : nmjson_type_unused_;
 			break;
 			
 		case '-': 
@@ -498,7 +473,7 @@ size_t				nmjson_parser_parse(nmjson_parser_t *self, char *src){
 			
 		default:
 			//その他文字: JSON5で「名前である可能性」が入ってしまったため、相手しなければいけない。
-			input_type = is_ecma5_(self) ? nmjson_type_rawstr_:nmjson_type_unused_;
+			input_type = nmjson_superset_has_identkey(self->superset) ? nmjson_type_rawstr_:nmjson_type_unused_;
 			break;
 		}
 		
@@ -520,7 +495,7 @@ size_t				nmjson_parser_parse(nmjson_parser_t *self, char *src){
 			if(!self->is_treating_value){
 				//「入力対象が値である」を満たしていない。
 				//→JSON5では、ここでもまだ負けを認めない。objectのkeyである可能性があるからだ。
-				input_type = is_ecma5_(self) ? nmjson_type_rawstr_ : nmjson_type_unused_;
+				input_type = nmjson_superset_has_identkey(self->superset) ? nmjson_type_rawstr_ : nmjson_type_unused_;
 				break;
 			}
 			
@@ -530,7 +505,7 @@ size_t				nmjson_parser_parse(nmjson_parser_t *self, char *src){
 			//IdentifierName(ecma5.1)を入力するよと言われた
 			//→条件: JSON5であること、オブジェクトの配下であること、値が対象でないこと、入力モードであること。
 			if(!(
-				is_ecma5_(self) && 
+				nmjson_superset_has_identkey(self->superset) && 
 				self->token.vessel != NULL && 
 				self->token.vessel->v.type == nmjson_type_object && 
 				!self->is_treating_value

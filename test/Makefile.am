@@ -10,7 +10,8 @@ testProgram_SOURCES = \
 	10-writer.c \
 	20-roundtrip.c \
 	21-roundtrip-num.c \
-	22-token-as-int.c
+	22-token-as-int.c \
+	23-superset.c
 
 testProgram_LDADD = ../src/libnmjson.a
 
