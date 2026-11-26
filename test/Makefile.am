@@ -9,7 +9,8 @@ testProgram_SOURCES = \
 	04-kitchen-sink-rough.c \
 	10-writer.c \
 	20-roundtrip.c \
-	21-roundtrip-num.c
+	21-roundtrip-num.c \
+	22-token-as-int.c
 
 testProgram_LDADD = ../src/libnmjson.a
 

@@ -108,47 +108,57 @@ static inline int64_t nmjson_token_as_int(const nmjson_token_t *token, int64_t d
 		
 	case nmjson_type_string:
 		{
+			/// \note	書式: [空白][+-][0x|0o|0b(大文字可)]数字列[空白など]
+			///			負数で INT64_MIN を下回る場合は INT64_MIN に飽和(strtoll準拠)。
+			///			正数で INT64_MAX を超える場合はビットそのまま(パーサーの整数格納と同じ扱い)。
 			char *endptr = NULL;
-			const char *startptr = token->v.value.s;
-			int cmp_len = 2;
+			const char *p = token->v.value.s;
 			int base = 10;
 			int is_minus = 0;
-			while(isspace((uint8_t)*startptr) && *startptr != '\0'){
-				startptr ++;
-				cmp_len ++;
+			uint64_t mag;
+			while(isspace((uint8_t)*p)){
+				p ++;
 			}
-			switch(*startptr){
-			case '-':
-				is_minus = 1;
-			case '+':
-				cmp_len ++;
-				startptr ++;
+			if(*p == '-' || *p == '+'){
+				is_minus = (*p == '-');
+				p ++;
 			}
-			
-			if(token->v.len > cmp_len){
-				if(memcmp(startptr, "0x", 2) == 0){
-					base = 16;
-				}
-				else if(memcmp(startptr, "0o", 2) == 0){
-					base = 8;
-					startptr += 2;
-				}
-				else if(memcmp(startptr, "0b", 2) == 0){
-					base = 2;
-					startptr += 2;
+			if(p[0] == '0'){
+				switch(p[1]){
+				case 'x': case 'X': base = 16; p += 2; break;
+				case 'o': case 'O': base = 8;  p += 2; break;
+				case 'b': case 'B': base = 2;  p += 2; break;
+				default: break;
 				}
 			}
-			
-			int64_t ret = is_minus ? strtoll(token->v.value.s, &endptr, base) : strtoull(token->v.value.s, &endptr, base);
+			// 符号・空白をstrtoullに再解釈させないよう、先頭が英数字であることを確認する
+			// (基数に合わない文字なら下のendptr == pで弾かれる)
+			if(!isalnum((uint8_t)*p)){
+				return def;
+			}
+			mag = strtoull(p, &endptr, base);
+			if(endptr == p){
+				return def;
+			}
 			switch(*endptr){
 			case '\0':
 			case ',':
 			case '"':
 			case '\'':
-				return ret;
+				break;
 			default:
-				return isspace((uint8_t)*endptr) ? ret:def;
+				if(!isspace((uint8_t)*endptr)){
+					return def;
+				}
+				break;
 			}
+			if(is_minus){
+				if(mag >= (uint64_t)INT64_MAX + 1){
+					return INT64_MIN;
+				}
+				return -(int64_t)mag;
+			}
+			return (int64_t)mag;
 		}
 	
 	case nmjson_type_bool:
