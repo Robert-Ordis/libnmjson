@@ -36,13 +36,9 @@ libnmjson_a_SOURCES = \
 	
 
 libnmjson_a_CFLAGS = $(AM_CFLAGS) \
-	-DVER_MAJOR=0 \
-	-DVER_MINOR=10 \
-	-DVER_PATCH=0 \
-	-DVER_TAILS= \
-	-DPROJECT_NAME=\"libnmjson\" \
 	-DBUILD_DATE=\"$(shell date +'%Y-%m-%d_%H:%M:%S')\" \
 	-I$(top_srcdir)/ \
+	-I$(top_builddir)/ \
 	-I$(top_srcdir)/src/third_party
 
 libnmjson_a-nmjson_buildver.$(OBJEXT) : FORCE

@@ -31,7 +31,10 @@ $ ./configure --prefix=/path/to/your/project && make && make install
 #include <nmjson/nmjson.h>          // パーサー・トークン(値の取り出し)
 #include <nmjson/nmjson_buffer.h>   // fdからの受信・振り分け
 #include <nmjson/nmjson_writer.h>   // 書き出し
+#include <nmjson/nmjson_version.h>  // バージョン情報(NMJSON_VERSION_* / nmjson_get_build_ver())
 ```
+
+バージョンの定義元は `configure.ac` 先頭の `nmjson_ver_*` だけです。`nmjson_version.h` は configure が生成します。
 
 ---
 

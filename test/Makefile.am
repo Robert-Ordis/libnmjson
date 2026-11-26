@@ -21,6 +21,7 @@ testProgram_SOURCES = \
 testProgram_LDADD = ../src/libnmjson.a
 
 testProgram_CFLAGS = \
-	-I$(top_srcdir)/
+	-I$(top_srcdir)/ \
+	-I$(top_builddir)/
 
 EXTRA_DIST = example

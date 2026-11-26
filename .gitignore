@@ -19,6 +19,7 @@ autom4te.cache
 /config.cache
 /config.guess
 /config.h.in
+/config.h
 /config.log
 /config.status
 /config.sub
@@ -54,3 +55,6 @@ Makefile
 *.o
 *.a
 testProgram
+
+# configure が生成するバージョンヘッダ
+/include/nmjson/nmjson_version.h

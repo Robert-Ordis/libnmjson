@@ -1,0 +1,54 @@
+/**
+ *	\file		nmjson_version.h
+ *	\brief		libnmjson のバージョン情報
+ *	\warning	このファイルは configure が nmjson_version.h.in から生成する。直接編集しないこと。
+ *				バージョンの定義元は configure.ac 先頭の nmjson_ver_* のみ。
+ */
+#ifndef	NMJSON_NMJSON_VERSION_H_
+#define	NMJSON_NMJSON_VERSION_H_
+
+#ifdef	__cplusplus
+extern "C" {
+#endif	/* __cplusplus */
+
+/// \brief	パッケージ名
+#define	NMJSON_PACKAGE_NAME		"@PACKAGE_NAME@"
+
+/// \brief	メジャーバージョン
+#define	NMJSON_VERSION_MAJOR	@NMJSON_VERSION_MAJOR@
+/// \brief	マイナーバージョン
+#define	NMJSON_VERSION_MINOR	@NMJSON_VERSION_MINOR@
+/// \brief	パッチバージョン
+#define	NMJSON_VERSION_PATCH	@NMJSON_VERSION_PATCH@
+/// \brief	接尾辞(例: "-rc1")。無ければ空文字列
+#define	NMJSON_VERSION_TAILS	"@NMJSON_VERSION_TAILS@"
+/// \brief	バージョン文字列(例: "0.11.0")
+#define	NMJSON_VERSION_STRING	"@PACKAGE_VERSION@"
+
+/**
+ *	\brief		#if で比較するための数値
+ *	\remarks	#if NMJSON_VERSION_NUMBER >= NMJSON_VERSION_ENCODE(0, 11, 0) のように使う
+ */
+#define	NMJSON_VERSION_ENCODE(major, minor, patch)	(((major) << 16) | ((minor) << 8) | (patch))
+#define	NMJSON_VERSION_NUMBER	NMJSON_VERSION_ENCODE(NMJSON_VERSION_MAJOR, NMJSON_VERSION_MINOR, NMJSON_VERSION_PATCH)
+
+/**
+ *	\brief		リンクされたライブラリのバージョン文字列(ビルド日時付き)
+ *	\remarks	例: "libnmjson 0.11.0(2026-11-26_12:34:56)"
+ */
+const char*	nmjson_get_build_ver(void);
+
+/**
+ *	\brief		リンクされたライブラリのバージョン番号
+ *	\remarks	ヘッダとライブラリの取り違えは、NMJSON_VERSION_* と比較して検出できる:
+ *				if(nmjson_get_minor_ver() != NMJSON_VERSION_MINOR){ ... }
+ */
+int			nmjson_get_major_ver(void);
+int			nmjson_get_minor_ver(void);
+int			nmjson_get_patch_ver(void);
+
+#ifdef	__cplusplus
+}
+#endif	/* __cplusplus */
+
+#endif	/* !NMJSON_NMJSON_VERSION_H_ */

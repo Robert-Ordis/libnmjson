@@ -1,27 +1,26 @@
 #include <stdio.h>
 
-#define xstr(s) str(s)
-#define str(s) #s
+// configure が生成する(バージョンの定義元は configure.ac)
+#include "include/nmjson/nmjson_version.h"
 
-const char*	nmjson_get_build_ver(){
+const char*	nmjson_get_build_ver(void){
 	static char verstr[128] = "";
 	if(verstr[0] == '\0'){
-		snprintf(verstr, sizeof(verstr), "%s %d.%d.%d%s(%s)", 
-			PROJECT_NAME, VER_MAJOR, VER_MINOR, VER_PATCH, xstr(VER_TAILS), BUILD_DATE);
+		snprintf(verstr, sizeof(verstr), "%s %s(%s)",
+			NMJSON_PACKAGE_NAME, NMJSON_VERSION_STRING, BUILD_DATE);
 	}
-	
+
 	return verstr;
 }
 
-const int	nmjson_get_major_ver(){
-	return VER_MAJOR;
+int			nmjson_get_major_ver(void){
+	return NMJSON_VERSION_MAJOR;
 }
 
-const int	nmjson_get_minor_ver(){
-	return VER_MINOR;
+int			nmjson_get_minor_ver(void){
+	return NMJSON_VERSION_MINOR;
 }
 
-const int	nmjson_get_patch_ver(){
-	return VER_PATCH;
+int			nmjson_get_patch_ver(void){
+	return NMJSON_VERSION_PATCH;
 }
-
