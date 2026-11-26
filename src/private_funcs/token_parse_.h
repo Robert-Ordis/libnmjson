@@ -231,11 +231,24 @@ static ssize_t token_parse_number_(nmjson_token_t *self, char *src, nmjson_super
 	case '}':
 	case ',':
 		break;
-	default:
-		if(!isspace((uint8_t)*endptr)){
-			//「正当な終了」には標準空白も含まれる。
+	case '/':
+		//コメントの開始(コメントが許可されている場合のみ)
+		if(!nmjson_superset_has_comment(superset)){
 			return -1;
 		}
+		break;
+	default:
+		{
+			//「正当な終了」には空白も含まれる(extspaceの有無で範囲が変わる)
+			ssize_t space_len = json_space_len_(endptr, superset);
+			if(space_len < 0){
+				return 0;	//マルチバイトの空白の途中で途切れた
+			}
+			if(space_len == 0){
+				return -1;
+			}
+		}
+		break;
 	}
 	
 	return (ssize_t)((uintptr_t)endptr - (uintptr_t)src);

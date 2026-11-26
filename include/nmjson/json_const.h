@@ -80,6 +80,9 @@ typedef struct nmjson_superset_s {
 	unsigned int	literalcntl			: 1;
 	/// \brief	オブジェクトのキーにクォートなしの識別子(ECMAScript 5.1 IdentifierName)
 	unsigned int	identkey			: 1;
+	/// \brief	空白の拡張: VT, FF, Unicodeの空白(U+00A0, U+FEFF, Zs), 行終端(U+2028, U+2029)
+	///			無効時はRFC 8259の4文字(SP, TAB, LF, CR)のみを空白とする
+	unsigned int	extspace			: 1;
 } nmjson_superset_t;
 
 /*
@@ -106,7 +109,7 @@ typedef struct nmjson_superset_s {
 	((nmjson_superset_t){ \
 		.comment = 1, .tailcomma = 1, \
 		.extnum = 1, .abbrdecimal = 1, .extescape = 1, .hexaescape = 1, \
-		.literalsq = 1, .linecontinuation = 1, .identkey = 1, \
+		.literalsq = 1, .linecontinuation = 1, .identkey = 1, .extspace = 1, \
 	})
 
 /// \brief 雑な文字列でも受け入れるための独自拡張
@@ -149,6 +152,9 @@ typedef struct nmjson_superset_s {
 
 /// \brief		スーパーセット: オブジェクトのキーにクォートなしの識別子OK？
 #define nmjson_superset_has_identkey(s)			((s).identkey)
+
+/// \brief		スーパーセット: VT/FF/Unicodeの空白・行終端OK？
+#define nmjson_superset_has_extspace(s)			((s).extspace)
 
 #ifdef __cplusplus
 }

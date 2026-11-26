@@ -27,12 +27,14 @@ typedef enum {
 	F_LINECONT,
 	F_LITERALCNTL,
 	F_IDENTKEY,
+	F_EXTSPACE,
 	F_NUM_,
 } feature_t;
 
 static const char *k_feature_name[F_NUM_] = {
 	"comment", "tailcomma", "extnum", "abbrdecimal", "extescape",
 	"hexaescape", "literalsq", "linecontinuation", "literalcntl", "identkey",
+	"extspace",
 };
 
 /// \brief	機能を1つだけ立てたスーパーセットを作る
@@ -49,6 +51,7 @@ static nmjson_superset_t single_(feature_t f){
 	case F_LINECONT:	s.linecontinuation = 1;	break;
 	case F_LITERALCNTL:	s.literalcntl = 1;		break;
 	case F_IDENTKEY:	s.identkey = 1;			break;
+	case F_EXTSPACE:	s.extspace = 1;			break;
 	default: break;
 	}
 	return s;
@@ -77,6 +80,12 @@ static const struct { feature_t f; const char *src; unsigned also; } k_inputs[] 
 	{ F_IDENTKEY,    "{a: 1}" },
 	{ F_IDENTKEY,    "{Name: 1}" },	// extnumの先頭文字(N)と重なるキー
 	{ F_IDENTKEY,    "{Infinite: 1}" },
+	{ F_EXTSPACE,    "[1,\v2]" },					// VT
+	{ F_EXTSPACE,    "[1\f]" },					// FF(数値の直後)
+	{ F_EXTSPACE,    "[1,\xC2\xA0" "2]" },		// U+00A0
+	{ F_EXTSPACE,    "\xEF\xBB\xBF[1]" },		// 先頭のBOM(U+FEFF)
+	{ F_EXTSPACE,    "[1\xE3\x80\x80]" },		// U+3000(数値の直後)
+	{ F_EXTSPACE,    "[\"a\",\xE2\x80\xA8\"b\"]" },	// U+2028
 };
 
 #define ARRAY_LEN_(a) (sizeof(a) / sizeof((a)[0]))
@@ -132,10 +141,10 @@ static void test_single_(void){
 /// \brief	プリセット: 定義どおりの機能集合であること
 static void test_presets_(void){
 	static const struct { const char *name; int accept[F_NUM_]; } k_presets[] = {
-		//                comm tail extn abbr exte hexa sq   lcon lcnt idnt
-		{ "jsonc", {      1,   1,   0,   0,   0,   0,   0,   0,   0,   0 } },
-		{ "json5", {      1,   1,   1,   1,   1,   1,   1,   1,   0,   1 } },
-		{ "rough", {      0,   0,   0,   0,   1,   0,   0,   0,   1,   0 } },
+		//                comm tail extn abbr exte hexa sq   lcon lcnt idnt espc
+		{ "jsonc", {      1,   1,   0,   0,   0,   0,   0,   0,   0,   0,   0 } },
+		{ "json5", {      1,   1,   1,   1,   1,   1,   1,   1,   0,   1,   1 } },
+		{ "rough", {      0,   0,   0,   0,   1,   0,   0,   0,   1,   0,   0 } },
 	};
 	nmjson_superset_t sets[3];
 	size_t p, i;

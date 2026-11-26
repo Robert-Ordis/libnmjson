@@ -19,15 +19,8 @@
  *				LineTerminator: LF, CR, U+2028, U+2029
  */
 static int e5ident_is_separator_(uint32_t u){
-	switch(u){
-	case 0x0009: case 0x000A: case 0x000B: case 0x000C: case 0x000D: case 0x0020:
-	case 0x00A0: case 0xFEFF: case 0x1680: case 0x202F: case 0x205F: case 0x3000:
-	case 0x2028: case 0x2029:
-		return 1;
-	default:
-		break;
-	}
-	return (u >= 0x2000 && u <= 0x200A);
+	//集合の定義は token_space_.h に一本化
+	return json5_is_space_cp_(u);
 }
 
 /**

@@ -79,15 +79,14 @@ static void test_terminators_(void){
 	// 以前は終端を誤ってキー名に取り込んでいたもの
 	expect_keys_("{key/*c*/:1}",                 "key");
 	expect_keys_("{key//c\n:1}",                 "key");
-	// Unicodeの空白・行終端: キー名はそこで正しく終わる。
-	// ただしトークン間のUnicode空白の読み飛ばしは未対応のため、現状は構文エラーになる(誤ったキー名で成功はしない)
-	expect_error_("{key\xC2\xA0:1}",              nmjson_error_syntax);	// U+00A0 NBSP
-	expect_error_("{key\xE3\x80\x80:1}",          nmjson_error_syntax);	// U+3000
-	expect_error_("{key\xE2\x80\xA8:1}",          nmjson_error_syntax);	// U+2028
-	expect_error_("{key\xE2\x80\xA9:1}",          nmjson_error_syntax);	// U+2029
-	expect_error_("{key\xEF\xBB\xBF:1}",          nmjson_error_syntax);	// U+FEFF
-	expect_error_("{key\xE2\x80\x8A:1}",          nmjson_error_syntax);	// U+200A
-	expect_error_("{key\xE1\x9A\x80:1}",          nmjson_error_syntax);	// U+1680
+	// Unicodeの空白・行終端(json5はextspaceを含む)
+	expect_keys_("{key\xC2\xA0:1}",              "key");	// U+00A0 NBSP
+	expect_keys_("{key\xE3\x80\x80:1}",          "key");	// U+3000
+	expect_keys_("{key\xE2\x80\xA8:1}",          "key");	// U+2028
+	expect_keys_("{key\xE2\x80\xA9:1}",          "key");	// U+2029
+	expect_keys_("{key\xEF\xBB\xBF:1}",          "key");	// U+FEFF
+	expect_keys_("{key\xE2\x80\x8A:1}",          "key");	// U+200A
+	expect_keys_("{key\xE1\x9A\x80:1}",          "key");	// U+1680
 	// ASCIIの空白・行終端
 	expect_keys_("{key :1}",                     "key");
 	expect_keys_("{key\t:1}",                    "key");
@@ -121,6 +120,10 @@ static void test_errors_(void){
 	expect_error_("{a':1}",           nmjson_error_syntax);
 	expect_error_("{a\x01:1}",        nmjson_error_syntax);
 	expect_error_("{a\x7F:1}",        nmjson_error_syntax);
+	// キー名の後に続けて識別子(以前はキー名が上書きされて成功していた)
+	expect_error_("{\"a\" b:1}",      nmjson_error_syntax);
+	expect_error_("{a b:1}",          nmjson_error_syntax);
+	expect_error_("{a:1, b c:2}",     nmjson_error_syntax);
 	// エスケープ
 	expect_error_("{ab\\x41:1}",      nmjson_error_syntax);	// 識別子では\xは不可
 	expect_error_("{ab\\u12:1}",      nmjson_error_syntax);	// 桁不足
@@ -136,7 +139,7 @@ static void test_incomplete_(void){
 	static const struct { const char *first; const char *rest; const char *key; } k_cases[] = {
 		{ "{abc",                  ":1}",              "abc" },
 		{ "{ab\xE3\x81",           "\x82:1}",          "ab\xE3\x81\x82" },	// マルチバイトの途中
-		{ "{ab\xE3\x80",           "\x80:1}",          NULL },				// U+3000(終端)の途中: 完了後は上記と同じく構文エラー
+		{ "{ab\xE3\x80",           "\x80:1}",          "ab" },				// U+3000(終端)の途中
 		{ "{ab\\u30",              "42:1}",            "ab\xE3\x81\x82" },	// \uの途中
 		{ "{ab",                   "/*c*/:1}",         "ab" },
 	};

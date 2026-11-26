@@ -79,6 +79,7 @@ static void dbg_print_stat_(nmjson_parser_t *self){
 
 #endif
 
+#include "../private_funcs/token_space_.h"
 #include "../private_funcs/token_parse_.h"
 #include "../private_funcs/token_parse_comment_.h"
 #include "../private_funcs/token_input_literal_.h"
@@ -184,9 +185,19 @@ size_t				nmjson_parser_parse(nmjson_parser_t *self, char *src){
 		if(break_loop){
 			break;
 		}
-		if(isspace((uint8_t)*(self->cursor))){
-			self->cursor ++;
-			continue;
+		{
+			//空白(extspaceの有無で範囲が変わる。isspaceはロケール依存かつJSONには広すぎるので使わない)
+			ssize_t space_len = json_space_len_(self->cursor, self->superset);
+			if(space_len > 0){
+				self->cursor += space_len;
+				continue;
+			}
+			if(space_len < 0){
+				//マルチバイトの空白の途中で途切れた
+				parser_put_err_(self, nmjson_error_incomplete, "Waiting to push[space]", 0);
+				break_loop = 1;
+				continue;
+			}
 		}
 		
 		dbg_print_stat_(self);
@@ -426,7 +437,7 @@ size_t				nmjson_parser_parse(nmjson_parser_t *self, char *src){
 			}
 			
 			//どこからどこまでコメントか見極めよう。
-			increment = determine_comment_(self->cursor);
+			increment = determine_comment_(self->cursor, self->superset);
 			if(increment == 0){
 				parser_put_err_(self, nmjson_error_incomplete, "Waiting to push[comment]", 0);
 				break_loop = 1;
@@ -508,7 +519,8 @@ size_t				nmjson_parser_parse(nmjson_parser_t *self, char *src){
 				nmjson_superset_has_identkey(self->superset) && 
 				self->token.vessel != NULL && 
 				self->token.vessel->v.type == nmjson_type_object && 
-				!self->is_treating_value
+				!self->is_treating_value &&
+				self->is_in_input		//キー名を待っている状態であること(既にキー名を読んだ後の {"a" b:1} を弾く)
 			)){
 				//以上を全て満たせなかったので構文エラー。
 				break_loop = 1;

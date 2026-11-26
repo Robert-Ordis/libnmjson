@@ -26,6 +26,7 @@ libnmjson_a_SOURCES = \
 	private_funcs/token_input_literal_.h \
 	private_funcs/token_parse_.h \
 	private_funcs/token_parse_comment_.h \
+	private_funcs/token_space_.h \
 	token/nmjson_token_fout.c \
 	writer/nmjson_writer_init_.c \
 	writer/nmjson_writer_cfg_.c \
